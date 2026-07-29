@@ -83,9 +83,10 @@ public final class SpawnStashCommand {
 		List<Direction> dirs = new ArrayList<>(List.of(HORIZONTAL));
 		Collections.shuffle(dirs);
 
+		// The stash overwrites whatever blocks are here (air, stone, ore...) so it works underground too.
 		for (int distance : new int[]{2, 3}) {
 			for (Direction dir : dirs) {
-				Set<BlockPos> pool = collectCells(level, base.relative(dir, distance));
+				Set<BlockPos> pool = collectCells(base.relative(dir, distance), base);
 				if (pool.size() >= cellsNeeded && placeCluster(level, pieces, pool, rarity)) {
 					String suffix = rarity > 0 ? " (rarity " + rarity + " loot in the shulkers)" : "";
 					player.sendSystemMessage(Component.literal("Spawned a stash next to you" + suffix + ".")
@@ -95,7 +96,7 @@ public final class SpawnStashCommand {
 			}
 		}
 
-		source.sendFailure(Component.literal("Not enough clear space around you to spawn a stash. Move somewhere more open."));
+		source.sendFailure(Component.literal("Couldn't place the stash. Try moving a little and running it again."));
 		return 0;
 	}
 
@@ -121,15 +122,16 @@ public final class SpawnStashCommand {
 		Collections.addAll(list, pieces);
 	}
 
-	/** Replaceable, ground-supported cells in a small footprint around {@code anchor}, at the anchor's Y. */
-	private static Set<BlockPos> collectCells(ServerLevel level, BlockPos anchor) {
+	/**
+	 * Cells in a small footprint around {@code anchor} (at the anchor's Y), skipping the block the player is
+	 * standing in. No air/support filtering: the stash overwrites whatever is there, so it works underground.
+	 */
+	private static Set<BlockPos> collectCells(BlockPos anchor, BlockPos playerBlock) {
 		Set<BlockPos> cells = new HashSet<>();
 		for (int dx = -1; dx <= 2; dx++) {
 			for (int dz = -1; dz <= 2; dz++) {
 				BlockPos pos = anchor.offset(dx, 0, dz);
-				boolean replaceable = level.getBlockState(pos).canBeReplaced();
-				boolean supported = !level.getBlockState(pos.below()).canBeReplaced();
-				if (replaceable && supported) {
+				if (!pos.equals(playerBlock) && !pos.equals(playerBlock.above())) {
 					cells.add(pos);
 				}
 			}
