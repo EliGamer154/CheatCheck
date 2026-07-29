@@ -28,6 +28,27 @@ public class TradeShopConfig {
 	/** In safemode, how far (blocks) a watching admin may stray from their target before being pulled back. */
 	public double safeModeLeashRadius = 100.0;
 
+	/** How far (blocks) a jailed player may move from the jail point before being pulled back. */
+	public double jailRadius = 20.0;
+
+	/** Master switch for the automatic ("AI") cheat detectors. */
+	public boolean aiCheckerEnabled = true;
+
+	/** Attack distance (blocks, eye-to-target-center) above which a hit is flagged as reach. */
+	public double aiReachThreshold = 4.5;
+
+	/** Rolling window (seconds) over which valuable-ore mining is counted for the x-ray heuristic. */
+	public int aiOreWindowSeconds = 300;
+
+	/** Valuable ores mined within the window that trips an x-ray flag. */
+	public int aiOreThreshold = 16;
+
+	/** Sustained horizontal speed (blocks/second) above which movement is flagged as speed. */
+	public double aiSpeedThreshold = 11.0;
+
+	/** Minimum seconds between repeat auto-flags of the same player for the same category. */
+	public int aiFlagCooldownSeconds = 120;
+
 	public static TradeShopConfig get() {
 		return instance;
 	}

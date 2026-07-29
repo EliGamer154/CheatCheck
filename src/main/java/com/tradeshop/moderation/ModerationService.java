@@ -1,10 +1,15 @@
 package com.tradeshop.moderation;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 
 import java.util.Set;
 
@@ -24,6 +29,16 @@ public final class ModerationService {
 		TempBan ban = new TempBan(target.getUUID(), target.getGameProfile().name(), reason, expiry, bannedBy);
 		ModerationState.get(target.level().getServer()).addBan(ban);
 		target.connection.disconnect(banScreen(ban));
+	}
+
+	/** Resolves a stored dimension id (e.g. {@code minecraft:overworld}) to a live level, falling back to the overworld. */
+	public static ServerLevel resolveLevel(MinecraftServer server, String dimension) {
+		String[] parts = dimension.split(":", 2);
+		Identifier id = parts.length == 2
+				? Identifier.fromNamespaceAndPath(parts[0], parts[1])
+				: Identifier.fromNamespaceAndPath("minecraft", parts[0]);
+		ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, id));
+		return level != null ? level : server.overworld();
 	}
 
 	/** The disconnect/login-deny screen text for a ban, including its remaining time. */

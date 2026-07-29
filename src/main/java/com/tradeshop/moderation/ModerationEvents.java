@@ -27,19 +27,24 @@ public final class ModerationEvents {
 	public static void register() {
 		ServerTickEvents.END_SERVER_TICK.register(ModerationEvents::enforceLeash);
 
-		// Block breaking while in safemode.
+		// Block breaking while in safemode or jailed.
 		PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
 			if (SafeModeManager.get().isSafeMode(player.getUUID())) {
 				player.sendSystemMessage(Component.literal("Safemode is on — you can't break blocks.")
 						.withStyle(ChatFormatting.RED));
 				return false;
 			}
+			if (isJailed(player)) {
+				player.sendSystemMessage(Component.literal("You're jailed — you can't break blocks.")
+						.withStyle(ChatFormatting.RED));
+				return false;
+			}
 			return true;
 		});
 
-		// Block placement while in safemode (only cancel actual block items, so menus/interactions still work).
+		// Block placement while in safemode or jailed (only cancel block items, so menus/interactions still work).
 		UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
-			if (SafeModeManager.get().isSafeMode(player.getUUID())
+			if ((SafeModeManager.get().isSafeMode(player.getUUID()) || isJailed(player))
 					&& player.getItemInHand(hand).getItem() instanceof BlockItem) {
 				return InteractionResult.FAIL;
 			}
@@ -53,11 +58,20 @@ public final class ModerationEvents {
 		});
 	}
 
+	private static boolean isJailed(net.minecraft.world.entity.player.Player player) {
+		return player instanceof ServerPlayer sp
+				&& ModerationState.get(sp.level().getServer()).isJailed(sp.getUUID());
+	}
+
 	private static void enforceLeash(net.minecraft.server.MinecraftServer server) {
 		SafeModeManager safe = SafeModeManager.get();
 		WatchTools tools = WatchTools.get();
 		double radius = TradeShopConfig.get().safeModeLeashRadius;
 		double radiusSq = radius * radius;
+
+		ModerationState state = ModerationState.get(server);
+		double jailRadiusSq = TradeShopConfig.get().jailRadius * TradeShopConfig.get().jailRadius;
+		Optional<ModerationState.JailPoint> jailPoint = state.jailPoint();
 
 		for (ServerPlayer online : server.getPlayerList().getPlayers()) {
 			// Keep frozen suspects pinned to where they were frozen.
@@ -69,6 +83,16 @@ public final class ModerationEvents {
 				}
 				online.setDeltaMovement(0, 0, 0);
 			});
+
+			// Confine jailed players to the jail point.
+			if (jailPoint.isPresent() && state.isJailed(online.getUUID())) {
+				ModerationState.JailPoint p = jailPoint.get();
+				ServerLevel jailLevel = ModerationService.resolveLevel(server, p.dimension());
+				if (online.level() != jailLevel
+						|| online.position().distanceToSqr(p.x(), p.y(), p.z()) > jailRadiusSq) {
+					online.teleportTo(jailLevel, p.x(), p.y(), p.z(), Set.of(), p.yaw(), p.pitch(), true);
+				}
+			}
 		}
 
 		for (ServerPlayer admin : server.getPlayerList().getPlayers()) {
