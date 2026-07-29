@@ -15,24 +15,32 @@ import net.minecraft.network.chat.Component;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/** {@code /pardon <name>} — op-only. Lifts an active temp-ban early, matching the banned player by name. */
+/**
+ * {@code /pardon <name>} (and its alias {@code /cheatcheckerunban <name>}) — op-only. Lifts an active
+ * temp-ban early, matching the banned player by name.
+ */
 public final class PardonCommand {
 	private PardonCommand() {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		SuggestionProvider<CommandSourceStack> bannedNames = (context, builder) -> {
-			ModerationState state = ModerationState.get(context.getSource().getServer());
-			return SharedSuggestionProvider.suggest(
-					state.activeBans().stream().map(b -> b.targetName).collect(Collectors.toList()), builder);
-		};
+		// Both command names do exactly the same thing.
+		for (String name : new String[]{"pardon", "cheatcheckerunban"}) {
+			dispatcher.register(Commands.literal(name)
+					.requires(com.tradeshop.TradeShop::canModerate)
+					.then(Commands.argument("name", StringArgumentType.word())
+							.suggests(PardonCommand::suggestBannedNames)
+							.executes(context -> pardon(context.getSource(),
+									StringArgumentType.getString(context, "name")))));
+		}
+	}
 
-		dispatcher.register(Commands.literal("pardon")
-				.requires(com.tradeshop.TradeShop::canModerate)
-				.then(Commands.argument("name", StringArgumentType.word())
-						.suggests(bannedNames)
-						.executes(context -> pardon(context.getSource(),
-								StringArgumentType.getString(context, "name")))));
+	private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggestBannedNames(
+			com.mojang.brigadier.context.CommandContext<CommandSourceStack> context,
+			com.mojang.brigadier.suggestion.SuggestionsBuilder builder) {
+		ModerationState state = ModerationState.get(context.getSource().getServer());
+		return SharedSuggestionProvider.suggest(
+				state.activeBans().stream().map(b -> b.targetName).collect(Collectors.toList()), builder);
 	}
 
 	private static int pardon(CommandSourceStack source, String name) {
