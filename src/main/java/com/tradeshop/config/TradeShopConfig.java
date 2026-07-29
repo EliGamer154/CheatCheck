@@ -28,8 +28,8 @@ public class TradeShopConfig {
 	/** In safemode, how far (blocks) a watching admin may stray from their target before being pulled back. */
 	public double safeModeLeashRadius = 100.0;
 
-	/** How far (blocks) a jailed player may move from the jail point before being pulled back. */
-	public double jailRadius = 20.0;
+	/** How far (blocks) a jailed player may move from the jail point before being pulled back (capped at 6 in code). */
+	public double jailRadius = 5.0;
 
 	/** Master switch for the automatic ("AI") cheat detectors. */
 	public boolean aiCheckerEnabled = true;

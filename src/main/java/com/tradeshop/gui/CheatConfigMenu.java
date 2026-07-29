@@ -43,7 +43,7 @@ public class CheatConfigMenu extends ShopMenu {
 		intSetting(20, Items.BARRIER, "Flag cooldown", c.aiFlagCooldownSeconds, 30, 0, 3600, "s", v -> c.aiFlagCooldownSeconds = v);
 		intSetting(21, Items.WRITABLE_BOOK, "Report cooldown", c.reportCooldownSeconds, 10, 0, 600, "s", v -> c.reportCooldownSeconds = v);
 		doubleSetting(22, Items.LEAD, "Safemode leash radius", c.safeModeLeashRadius, 10, 5, 500, " blocks", v -> c.safeModeLeashRadius = v);
-		doubleSetting(23, Items.IRON_BARS, "Jail radius", c.jailRadius, 5, 2, 200, " blocks", v -> c.jailRadius = v);
+		doubleSetting(23, Items.IRON_BARS, "Jail radius", c.jailRadius, 1, 2, 6, " blocks", v -> c.jailRadius = v);
 
 		setDisplay(49, Icons.of(new ItemStack(Items.COMPARATOR), "Cheat Config",
 				"Left-click a setting to raise it", "Right-click to lower it", "Changes save instantly"));

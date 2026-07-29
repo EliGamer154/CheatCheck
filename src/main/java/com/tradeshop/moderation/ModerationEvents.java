@@ -72,7 +72,9 @@ public final class ModerationEvents {
 		double radiusSq = radius * radius;
 
 		ModerationState state = ModerationState.get(server);
-		double jailRadiusSq = TradeShopConfig.get().jailRadius * TradeShopConfig.get().jailRadius;
+		// A jail should hold them in a small cell, so cap the leash tight regardless of the configured value.
+		double jailRadius = Math.min(TradeShopConfig.get().jailRadius, 6.0);
+		double jailRadiusSq = jailRadius * jailRadius;
 		Optional<ModerationState.JailPoint> jailPoint = state.jailPoint();
 		boolean radarOn = tools.isRadarOn();
 		// Jail sentences only tick down while the player is online, so we count real seconds here.
@@ -101,6 +103,7 @@ public final class ModerationEvents {
 				if (online.level() != jailLevel
 						|| online.position().distanceToSqr(p.x(), p.y(), p.z()) > jailRadiusSq) {
 					online.teleportTo(jailLevel, p.x(), p.y(), p.z(), Set.of(), p.yaw(), p.pitch(), true);
+					online.setDeltaMovement(0, 0, 0); // kill momentum so they don't slingshot back out
 				}
 
 				ModerationState.JailEntry inmate = entry.get();
