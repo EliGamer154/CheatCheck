@@ -2,6 +2,7 @@ package com.tradeshop.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -20,14 +21,16 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * {@code /spawnbase} — op-only. Carves a random enclosed room (5x5 up to 10x10) next to the player with a
- * randomly-chosen shell material, lines the walls with storage (chests/barrels facing inward), lights it,
- * and fills the middle according to a random style (storage vault, full base, cluttered stash, enchant room).
- * Different every time.
+ * {@code /spawnbase [rarity]} — op-only. Carves a random enclosed room (5x5 up to 10x10) with a random shell
+ * material, lines the walls with storage and utility blocks facing inward (like a player built it), keeps the
+ * middle mostly open, lights it, and usually adds a bed. With a rarity of 1-3 the chests/barrels/shulkers are
+ * stocked with the same tiered {@link StashLoot} as {@code /spawnstash}.
  */
 public final class SpawnBaseCommand {
 	private static final Direction[] HORIZONTAL = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
@@ -41,17 +44,16 @@ public final class SpawnBaseCommand {
 			Blocks.OAK_PLANKS, Blocks.SPRUCE_PLANKS, Blocks.DARK_OAK_PLANKS, Blocks.STONE_BRICKS,
 			Blocks.DEEPSLATE_TILES, Blocks.COBBLESTONE, Blocks.POLISHED_ANDESITE};
 	private static final Block[] LIGHTS = {Blocks.GLOWSTONE, Blocks.SEA_LANTERN};
-	private static final Block[] WALL_STORAGE = {
-			Blocks.CHEST, Blocks.CHEST, Blocks.BARREL, Blocks.BARREL, Blocks.CHEST, Blocks.SHULKER_BOX};
-	private static final Block[] STATIONS = {
-			Blocks.CRAFTING_TABLE, Blocks.FURNACE, Blocks.BLAST_FURNACE, Blocks.SMOKER, Blocks.ANVIL,
-			Blocks.CARTOGRAPHY_TABLE, Blocks.SMITHING_TABLE, Blocks.LOOM, Blocks.GRINDSTONE, Blocks.STONECUTTER,
-			Blocks.LECTERN, Blocks.CAULDRON, Blocks.COMPOSTER, Blocks.ENDER_CHEST, Blocks.JUKEBOX, Blocks.NOTE_BLOCK,
-			Blocks.CHEST, Blocks.BARREL};
 	private static final Block[] BED_COLORS = {
 			Blocks.RED_BED, Blocks.BLUE_BED, Blocks.LIME_BED, Blocks.YELLOW_BED, Blocks.WHITE_BED, Blocks.CYAN_BED};
 
-	private enum Style {STORAGE_VAULT, FULL_BASE, CLUTTERED_STASH, ENCHANT_ROOM}
+	/** What lines the walls — heavily weighted toward storage, with utility stations mixed in. */
+	private static final Block[] WALL = {
+			Blocks.CHEST, Blocks.CHEST, Blocks.CHEST, Blocks.CHEST, Blocks.BARREL, Blocks.BARREL, Blocks.BARREL,
+			Blocks.SHULKER_BOX, Blocks.FURNACE, Blocks.BLAST_FURNACE, Blocks.SMOKER, Blocks.CRAFTING_TABLE,
+			Blocks.ENDER_CHEST, Blocks.ANVIL, Blocks.BOOKSHELF, Blocks.CHISELED_BOOKSHELF, Blocks.BREWING_STAND,
+			Blocks.CARTOGRAPHY_TABLE, Blocks.SMITHING_TABLE, Blocks.LOOM, Blocks.GRINDSTONE, Blocks.STONECUTTER,
+			Blocks.LECTERN, Blocks.CAULDRON, Blocks.COMPOSTER, Blocks.JUKEBOX, Blocks.NOTE_BLOCK};
 
 	private SpawnBaseCommand() {
 	}
@@ -59,47 +61,95 @@ public final class SpawnBaseCommand {
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("spawnbase")
 				.requires(com.tradeshop.TradeShop::canModerate)
-				.executes(context -> spawn(context.getSource())));
+				.executes(context -> spawn(context.getSource(), 0))
+				.then(Commands.argument("rarity", IntegerArgumentType.integer(1, 3))
+						.executes(context -> spawn(context.getSource(), IntegerArgumentType.getInteger(context, "rarity")))));
 	}
 
-	private static int spawn(CommandSourceStack source) throws CommandSyntaxException {
+	private static int spawn(CommandSourceStack source, int rarity) throws CommandSyntaxException {
 		ServerPlayer player = source.getPlayerOrException();
 		ServerLevel level = (ServerLevel) player.level();
 		ThreadLocalRandom random = ThreadLocalRandom.current();
 
 		int size = 5 + random.nextInt(6);              // 5..10
 		int interiorHeight = size >= 8 ? 4 : 3;
-		int height = interiorHeight + 2;               // floor + interior + ceiling
-		Style style = Style.values()[random.nextInt(Style.values().length)];
+		int height = interiorHeight + 2;
 
 		Block shell = SHELLS[random.nextInt(SHELLS.length)];
 		Block floor = random.nextInt(100) < 50 ? shell : FLOORS[random.nextInt(FLOORS.length)];
 
 		BlockPos base = player.blockPosition();
 		Direction dir = HORIZONTAL[random.nextInt(HORIZONTAL.length)];
-		int originX = base.getX() + dir.getStepX() * size - size / 2;
-		int originZ = base.getZ() + dir.getStepZ() * size - size / 2;
+		int ox = base.getX() + dir.getStepX() * size - size / 2;
+		int oz = base.getZ() + dir.getStepZ() * size - size / 2;
 		int floorY = base.getY() - 1;
 
-		carveShell(level, originX, floorY, originZ, size, height, shell, floor);
-		placeLights(level, originX, floorY, originZ, size, height, random);
+		carveShell(level, ox, floorY, oz, size, height, shell, floor);
+		placeLights(level, ox, floorY, oz, size, height, random);
 
-		List<BlockPos> used = new ArrayList<>();
-		lineWalls(level, originX, floorY, originZ, size, wallDensity(style), used, random);
-		fillCenter(level, originX, floorY, originZ, size, style, used, random);
+		int y = floorY + 1;
+		List<BlockPos> interior = new ArrayList<>();
+		Set<BlockPos> interiorSet = new HashSet<>();
+		for (int dx = 1; dx < size - 1; dx++) {
+			for (int dz = 1; dz < size - 1; dz++) {
+				BlockPos pos = new BlockPos(ox + dx, y, oz + dz);
+				interior.add(pos);
+				interiorSet.add(pos);
+			}
+		}
+		Collections.shuffle(interior);
+		Set<BlockPos> used = new HashSet<>();
 
-		player.sendSystemMessage(Component.literal("Spawned a " + size + "x" + size + " "
-				+ style.name().toLowerCase().replace('_', ' ') + ".").withStyle(ChatFormatting.GREEN));
+		// Beds first (so they have room). Most bases get one; big ones sometimes two.
+		if (random.nextInt(100) < 85) {
+			int beds = size >= 8 && random.nextBoolean() ? 2 : 1;
+			for (int i = 0; i < beds; i++) {
+				placeBed(level, interior, interiorSet, used, random);
+			}
+		}
+
+		// Line the walls with storage/stations facing inward; stock containers if a rarity was given.
+		int placed = 0;
+		for (int dx = 1; dx < size - 1; dx++) {
+			for (int dz = 1; dz < size - 1; dz++) {
+				boolean perimeter = dx == 1 || dx == size - 2 || dz == 1 || dz == size - 2;
+				if (!perimeter) {
+					continue;
+				}
+				BlockPos pos = new BlockPos(ox + dx, y, oz + dz);
+				if (used.contains(pos) || random.nextDouble() > 0.85) {
+					continue;
+				}
+				placeWall(level, pos, WALL[random.nextInt(WALL.length)], inward(dx, dz, size), rarity);
+				used.add(pos);
+				placed++;
+			}
+		}
+
+		String suffix = rarity > 0 ? " (rarity " + rarity + " loot)" : "";
+		player.sendSystemMessage(Component.literal("Spawned a " + size + "x" + size + " base with "
+				+ placed + " furnishings" + suffix + ".").withStyle(ChatFormatting.GREEN));
 		return Command.SINGLE_SUCCESS;
 	}
 
-	private static double wallDensity(Style style) {
-		return switch (style) {
-			case STORAGE_VAULT -> 0.9;
-			case FULL_BASE -> 0.55;
-			case ENCHANT_ROOM -> 0.5;
-			case CLUTTERED_STASH -> 0.7;
-		};
+	private static Direction inward(int dx, int dz, int size) {
+		if (dx == 1) {
+			return Direction.EAST;
+		}
+		if (dx == size - 2) {
+			return Direction.WEST;
+		}
+		if (dz == 1) {
+			return Direction.SOUTH;
+		}
+		return Direction.NORTH;
+	}
+
+	private static void placeWall(ServerLevel level, BlockPos pos, Block block, Direction inward, int rarity) {
+		level.setBlockAndUpdate(pos, faced(block, inward));
+		if (rarity > 0 && (block == Blocks.CHEST || block == Blocks.BARREL || block == Blocks.SHULKER_BOX)) {
+			StashLoot.fill(level.getBlockEntity(pos), rarity);
+		}
 	}
 
 	private static void carveShell(ServerLevel level, int ox, int floorY, int oz, int size, int height,
@@ -131,102 +181,15 @@ public final class SpawnBaseCommand {
 		}
 	}
 
-	/** Places storage blocks along the interior walls, facing into the room. */
-	private static void lineWalls(ServerLevel level, int ox, int floorY, int oz, int size, double density,
-			List<BlockPos> used, ThreadLocalRandom random) {
-		int y = floorY + 1;
-		for (int dx = 1; dx < size - 1; dx++) {
-			for (int dz = 1; dz < size - 1; dz++) {
-				boolean perimeter = dx == 1 || dx == size - 2 || dz == 1 || dz == size - 2;
-				if (!perimeter || random.nextDouble() > density) {
-					continue;
-				}
-				Direction inward;
-				if (dx == 1) {
-					inward = Direction.EAST;
-				} else if (dx == size - 2) {
-					inward = Direction.WEST;
-				} else if (dz == 1) {
-					inward = Direction.SOUTH;
-				} else {
-					inward = Direction.NORTH;
-				}
-				BlockPos pos = new BlockPos(ox + dx, y, oz + dz);
-				level.setBlockAndUpdate(pos, faced(WALL_STORAGE[random.nextInt(WALL_STORAGE.length)], inward));
-				used.add(pos);
-			}
-		}
-	}
-
-	private static void fillCenter(ServerLevel level, int ox, int floorY, int oz, int size, Style style,
-			List<BlockPos> used, ThreadLocalRandom random) {
-		int y = floorY + 1;
-		List<BlockPos> cells = new ArrayList<>();
-		for (int dx = 2; dx < size - 2; dx++) {
-			for (int dz = 2; dz < size - 2; dz++) {
-				BlockPos pos = new BlockPos(ox + dx, y, oz + dz);
-				if (!used.contains(pos)) {
-					cells.add(pos);
-				}
-			}
-		}
-		Collections.shuffle(cells);
-		if (cells.isEmpty()) {
-			return;
-		}
-
-		// A bed in most styles.
-		if (style != Style.ENCHANT_ROOM) {
-			placeBed(level, cells, used, random);
-		}
-
-		switch (style) {
-			case ENCHANT_ROOM -> {
-				// Enchanting table ringed by bookshelves.
-				BlockPos c = cells.get(0);
-				level.setBlockAndUpdate(c, Blocks.ENCHANTING_TABLE.defaultBlockState());
-				used.add(c);
-				for (Direction d : Direction.values()) {
-					if (d.getAxis().isHorizontal()) {
-						BlockPos shelf = c.relative(d, 2);
-						level.setBlockAndUpdate(shelf, (random.nextBoolean() ? Blocks.BOOKSHELF : Blocks.CHISELED_BOOKSHELF)
-								.defaultBlockState());
-					}
-				}
-				scatter(level, cells, used, random, 2, Blocks.BREWING_STAND, Blocks.ANVIL, Blocks.LECTERN);
-			}
-			case FULL_BASE -> scatter(level, cells, used, random, Math.max(3, cells.size() / 3),
-					STATIONS);
-			case CLUTTERED_STASH -> scatter(level, cells, used, random, Math.max(4, cells.size() * 2 / 3),
-					STATIONS);
-			case STORAGE_VAULT -> scatter(level, cells, used, random, Math.max(1, cells.size() / 5),
-					Blocks.CRAFTING_TABLE, Blocks.ENDER_CHEST, Blocks.CHEST);
-		}
-	}
-
-	private static void scatter(ServerLevel level, List<BlockPos> cells, List<BlockPos> used, ThreadLocalRandom random,
-			int count, Block... palette) {
-		int placed = 0;
-		for (BlockPos cell : cells) {
-			if (placed >= count) {
-				break;
-			}
-			if (!used.contains(cell)) {
-				level.setBlockAndUpdate(cell, palette[random.nextInt(palette.length)].defaultBlockState());
-				used.add(cell);
-				placed++;
-			}
-		}
-	}
-
-	private static void placeBed(ServerLevel level, List<BlockPos> cells, List<BlockPos> used, ThreadLocalRandom random) {
+	private static void placeBed(ServerLevel level, List<BlockPos> cells, Set<BlockPos> pool, Set<BlockPos> used,
+			ThreadLocalRandom random) {
 		for (BlockPos foot : cells) {
 			if (used.contains(foot)) {
 				continue;
 			}
 			for (Direction dir : HORIZONTAL) {
 				BlockPos head = foot.relative(dir);
-				if (cells.contains(head) && !used.contains(head)) {
+				if (pool.contains(head) && !used.contains(head)) {
 					Block bed = BED_COLORS[random.nextInt(BED_COLORS.length)];
 					BlockState footState = bed.defaultBlockState()
 							.setValue(BedBlock.FACING, dir).setValue(BedBlock.PART, BedPart.FOOT);
@@ -240,7 +203,7 @@ public final class SpawnBaseCommand {
 		}
 	}
 
-	/** Default state, but faced toward {@code inward} if the block supports a horizontal facing (chests, furnaces...). */
+	/** Default state, faced toward {@code inward} if the block supports a horizontal facing (chests, furnaces...). */
 	private static BlockState faced(Block block, Direction inward) {
 		BlockState state = block.defaultBlockState();
 		if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {

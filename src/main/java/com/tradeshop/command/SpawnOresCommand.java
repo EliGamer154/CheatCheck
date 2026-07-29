@@ -77,8 +77,7 @@ public final class SpawnOresCommand {
 			case 4 -> rand(random, 2, 4);
 			default -> rand(random, 4, 7);
 		};
-		int count = placeVein(level, veinCenter(player, random), veinSize,
-				y -> presetOre(rarity, y), y -> presetCasing(rarity, y), random);
+		int count = placeVein(level, veinCenter(player, random), veinSize, y -> presetOre(rarity, y), random);
 
 		String label = switch (rarity) {
 			case 1 -> "coal";
@@ -89,11 +88,6 @@ public final class SpawnOresCommand {
 		player.sendSystemMessage(Component.literal("Spawned a " + label + " ore vein (" + count + " ores).")
 				.withStyle(ChatFormatting.GREEN));
 		return Command.SINGLE_SUCCESS;
-	}
-
-	/** Deepslate below y=0, stone at/above. */
-	private static Block presetCasing(int rarity, int y) {
-		return rarity == 4 ? Blocks.NETHERRACK : (y < 0 ? Blocks.DEEPSLATE : Blocks.STONE);
 	}
 
 	private static Block presetOre(int rarity, int y) {
@@ -122,18 +116,15 @@ public final class SpawnOresCommand {
 			return 0;
 		}
 
-		Block ore = customOre(metal, background);
+		final Block oreBlock = customOre(metal, background);
 		ServerPlayer player = source.getPlayerOrException();
 		ServerLevel level = (ServerLevel) player.level();
 		ThreadLocalRandom random = ThreadLocalRandom.current();
 
-		final Block oreBlock = ore;
-		final Block bgBlock = background;
-		int count = placeVein(level, veinCenter(player, random), veinSizeFor(metal),
-				y -> oreBlock, y -> bgBlock, random);
+		int count = placeVein(level, veinCenter(player, random), veinSizeFor(metal), y -> oreBlock, random);
 
-		player.sendSystemMessage(Component.literal("Spawned a " + metal + " vein in "
-				+ background.getName().getString().toLowerCase() + " (" + count + " ores).").withStyle(ChatFormatting.GREEN));
+		player.sendSystemMessage(Component.literal("Spawned a " + oreBlock.getName().getString().toLowerCase()
+				+ " vein (" + count + " ores).").withStyle(ChatFormatting.GREEN));
 		return Command.SINGLE_SUCCESS;
 	}
 
@@ -206,8 +197,9 @@ public final class SpawnOresCommand {
 	}
 
 	private static int placeVein(ServerLevel level, BlockPos center, int veinSize,
-			IntFunction<Block> oreAt, IntFunction<Block> casingAt, ThreadLocalRandom random) {
-		// Build a connected blob by random-walking from the center.
+			IntFunction<Block> oreAt, ThreadLocalRandom random) {
+		// Build a connected blob by random-walking from the center, then place just the ore blocks
+		// (no stone casing — the vein embeds in whatever's already there, e.g. stone underground).
 		Set<BlockPos> ores = new HashSet<>();
 		ores.add(center);
 		BlockPos cursor = center;
@@ -220,14 +212,6 @@ public final class SpawnOresCommand {
 			}
 		}
 
-		for (BlockPos orePos : ores) {
-			for (Direction face : Direction.values()) {
-				BlockPos neighbor = orePos.relative(face);
-				if (!ores.contains(neighbor) && level.getBlockState(neighbor).canBeReplaced()) {
-					level.setBlockAndUpdate(neighbor, casingAt.apply(neighbor.getY()).defaultBlockState());
-				}
-			}
-		}
 		for (BlockPos orePos : ores) {
 			level.setBlockAndUpdate(orePos, oreAt.apply(orePos.getY()).defaultBlockState());
 		}
