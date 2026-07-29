@@ -22,7 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * {@code /spawnores <rarity>} — op-only. Carves a natural-looking ore vein into the ground next to the
  * player and casings any exposed sides in stone so it doesn't float. Rarity 1 = coal, 2 = iron, 3 = diamond;
- * deepslate variants are used below y=0.
+ * deepslate variants are used below y=0. Rarity 4 = a small ancient debris vein cased in netherrack.
  */
 public final class SpawnOresCommand {
 	private SpawnOresCommand() {
@@ -31,7 +31,7 @@ public final class SpawnOresCommand {
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("spawnores")
 				.requires(com.tradeshop.TradeShop::canModerate)
-				.then(Commands.argument("rarity", IntegerArgumentType.integer(1, 3))
+				.then(Commands.argument("rarity", IntegerArgumentType.integer(1, 4))
 						.executes(context -> spawn(context.getSource(), IntegerArgumentType.getInteger(context, "rarity")))));
 	}
 
@@ -47,6 +47,7 @@ public final class SpawnOresCommand {
 		int veinSize = switch (rarity) {
 			case 1 -> rand(random, 8, 14);
 			case 2 -> rand(random, 6, 10);
+			case 4 -> rand(random, 2, 4); // ancient debris veins are tiny
 			default -> rand(random, 4, 7);
 		};
 
@@ -69,7 +70,7 @@ public final class SpawnOresCommand {
 			for (Direction face : Direction.values()) {
 				BlockPos neighbor = orePos.relative(face);
 				if (!ores.contains(neighbor) && level.getBlockState(neighbor).canBeReplaced()) {
-					level.setBlockAndUpdate(neighbor, stoneFor(neighbor.getY()).defaultBlockState());
+					level.setBlockAndUpdate(neighbor, casingFor(rarity, neighbor.getY()).defaultBlockState());
 				}
 			}
 		}
@@ -80,6 +81,7 @@ public final class SpawnOresCommand {
 		String label = switch (rarity) {
 			case 1 -> "coal";
 			case 2 -> "iron";
+			case 4 -> "ancient debris";
 			default -> "diamond";
 		};
 		player.sendSystemMessage(Component.literal("Spawned a " + label + " ore vein (" + ores.size() + " ores).")
@@ -92,12 +94,18 @@ public final class SpawnOresCommand {
 		return y < 0 ? Blocks.DEEPSLATE : Blocks.STONE;
 	}
 
-	/** The ore block for a rarity, using the deepslate variant below y=0. */
+	/** Casing block around a vein: netherrack for ancient debris, otherwise stone/deepslate by Y. */
+	private static Block casingFor(int rarity, int y) {
+		return rarity == 4 ? Blocks.NETHERRACK : stoneFor(y);
+	}
+
+	/** The ore block for a rarity, using the deepslate variant below y=0 (ancient debris has no variant). */
 	private static Block oreFor(int rarity, int y) {
 		boolean deep = y < 0;
 		return switch (rarity) {
 			case 1 -> deep ? Blocks.DEEPSLATE_COAL_ORE : Blocks.COAL_ORE;
 			case 2 -> deep ? Blocks.DEEPSLATE_IRON_ORE : Blocks.IRON_ORE;
+			case 4 -> Blocks.ANCIENT_DEBRIS;
 			default -> deep ? Blocks.DEEPSLATE_DIAMOND_ORE : Blocks.DIAMOND_ORE;
 		};
 	}
