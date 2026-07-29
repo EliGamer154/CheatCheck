@@ -2,7 +2,9 @@ package com.tradeshop.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.tradeshop.moderation.DurationParser;
 import com.tradeshop.moderation.ModerationService;
 import com.tradeshop.moderation.ModerationState;
 import net.minecraft.ChatFormatting;
@@ -17,9 +19,11 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * {@code /jail <player>} and {@code /unjail <player>} — op-only. Jail confines a player to the {@code /setjail}
- * point (they're teleported there and held within {@link com.tradeshop.config.TradeShopConfig#jailRadius}
- * blocks, and can't place/break blocks); unjail releases them. Jail status persists across restarts.
+ * {@code /jail <player> [time]} and {@code /unjail <player>} — op-only. Jail confines a player to the
+ * {@code /setjail} point (teleported there, held within {@link com.tradeshop.config.TradeShopConfig#jailRadius}
+ * blocks, and can't place/break blocks). With a time (e.g. {@code 30m}, {@code 2h}) the sentence only counts
+ * down while the player is online, and they're released automatically when it runs out; with no time it lasts
+ * until {@code /unjail}. Jail status and remaining time persist across restarts.
  */
 public final class JailCommand {
 	private JailCommand() {
@@ -29,7 +33,11 @@ public final class JailCommand {
 		dispatcher.register(Commands.literal("jail")
 				.requires(com.tradeshop.TradeShop::canModerate)
 				.then(Commands.argument("player", EntityArgument.player())
-						.executes(context -> jail(context.getSource(), EntityArgument.getPlayer(context, "player")))));
+						.executes(context -> jail(context.getSource(), EntityArgument.getPlayer(context, "player"), DurationParser.PERMANENT))
+						.then(Commands.argument("time", StringArgumentType.word())
+								.executes(context -> jailTimed(context.getSource(),
+										EntityArgument.getPlayer(context, "player"),
+										StringArgumentType.getString(context, "time"))))));
 
 		dispatcher.register(Commands.literal("unjail")
 				.requires(com.tradeshop.TradeShop::canModerate)
@@ -37,7 +45,16 @@ public final class JailCommand {
 						.executes(context -> unjail(context.getSource(), EntityArgument.getPlayer(context, "player")))));
 	}
 
-	private static int jail(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
+	private static int jailTimed(CommandSourceStack source, ServerPlayer target, String time) throws CommandSyntaxException {
+		Optional<Long> seconds = DurationParser.parseSeconds(time);
+		if (seconds.isEmpty()) {
+			source.sendFailure(Component.literal("Invalid time \"" + time + "\". Use e.g. 10m, 2h, 1d, or perm."));
+			return 0;
+		}
+		return jail(source, target, seconds.get());
+	}
+
+	private static int jail(CommandSourceStack source, ServerPlayer target, long seconds) throws CommandSyntaxException {
 		ModerationState state = ModerationState.get(source.getServer());
 		Optional<ModerationState.JailPoint> point = state.jailPoint();
 		if (point.isEmpty()) {
@@ -45,14 +62,17 @@ public final class JailCommand {
 			return 0;
 		}
 
-		state.jail(target.getUUID());
+		state.jail(target.getUUID(), target.getGameProfile().name(), seconds);
 		ModerationState.JailPoint p = point.get();
 		ServerLevel level = ModerationService.resolveLevel(source.getServer(), p.dimension());
 		target.teleportTo(level, p.x(), p.y(), p.z(), Set.of(), p.yaw(), p.pitch(), true);
 
 		String name = target.getGameProfile().name();
-		source.sendSuccess(() -> Component.literal("Jailed " + name + ".").withStyle(ChatFormatting.GREEN), true);
-		target.sendSystemMessage(Component.literal("You have been jailed by an admin.").withStyle(ChatFormatting.RED));
+		String duration = seconds == DurationParser.PERMANENT
+				? "until an admin unjails them"
+				: "for " + DurationParser.format(seconds) + " of online time";
+		source.sendSuccess(() -> Component.literal("Jailed " + name + " " + duration + ".").withStyle(ChatFormatting.GREEN), true);
+		target.sendSystemMessage(Component.literal("You have been jailed by an admin " + duration + ".").withStyle(ChatFormatting.RED));
 		return Command.SINGLE_SUCCESS;
 	}
 

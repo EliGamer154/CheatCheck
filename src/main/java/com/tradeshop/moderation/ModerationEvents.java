@@ -21,6 +21,8 @@ import java.util.UUID;
  * block place/break lockout, and cleanup of a player's safemode state when they disconnect.
  */
 public final class ModerationEvents {
+	private static int jailTickCounter;
+
 	private ModerationEvents() {
 	}
 
@@ -73,6 +75,8 @@ public final class ModerationEvents {
 		double jailRadiusSq = TradeShopConfig.get().jailRadius * TradeShopConfig.get().jailRadius;
 		Optional<ModerationState.JailPoint> jailPoint = state.jailPoint();
 		boolean radarOn = tools.isRadarOn();
+		// Jail sentences only tick down while the player is online, so we count real seconds here.
+		boolean secondTick = (++jailTickCounter % 20) == 0;
 
 		for (ServerPlayer online : server.getPlayerList().getPlayers()) {
 			// Radar: keep every player glowing (covers newly-joined players too).
@@ -89,13 +93,25 @@ public final class ModerationEvents {
 				online.setDeltaMovement(0, 0, 0);
 			});
 
-			// Confine jailed players to the jail point.
-			if (jailPoint.isPresent() && state.isJailed(online.getUUID())) {
+			// Confine jailed players to the jail point, and count down timed sentences while they're online.
+			Optional<ModerationState.JailEntry> entry = state.jailEntry(online.getUUID());
+			if (jailPoint.isPresent() && entry.isPresent()) {
 				ModerationState.JailPoint p = jailPoint.get();
 				ServerLevel jailLevel = ModerationService.resolveLevel(server, p.dimension());
 				if (online.level() != jailLevel
 						|| online.position().distanceToSqr(p.x(), p.y(), p.z()) > jailRadiusSq) {
 					online.teleportTo(jailLevel, p.x(), p.y(), p.z(), Set.of(), p.yaw(), p.pitch(), true);
+				}
+
+				ModerationState.JailEntry inmate = entry.get();
+				if (secondTick && inmate.remainingSeconds > 0) {
+					inmate.remainingSeconds--;
+					state.touch();
+					if (inmate.remainingSeconds <= 0) {
+						state.unjail(online.getUUID());
+						online.sendSystemMessage(Component.literal("Your jail time is up — you're free to go.")
+								.withStyle(ChatFormatting.GREEN));
+					}
 				}
 			}
 		}

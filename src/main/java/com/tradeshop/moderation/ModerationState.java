@@ -57,12 +57,18 @@ public class ModerationState extends SavedData {
 			Codec.FLOAT.fieldOf("pitch").forGetter(JailPoint::pitch)
 	).apply(instance, JailPoint::new));
 
+	private static final Codec<JailEntry> JAIL_ENTRY_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			UUIDUtil.CODEC.fieldOf("id").forGetter(e -> e.id),
+			Codec.STRING.fieldOf("name").forGetter(e -> e.name),
+			Codec.LONG.fieldOf("remainingSeconds").forGetter(e -> e.remainingSeconds)
+	).apply(instance, JailEntry::new));
+
 	public static final Codec<ModerationState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			VIOLATION_CODEC.listOf().fieldOf("violations").forGetter(s -> s.violations),
 			REPORT_CODEC.listOf().fieldOf("reports").forGetter(s -> s.reports),
 			BAN_CODEC.listOf().fieldOf("bans").forGetter(s -> s.bans),
 			JAIL_POINT_CODEC.optionalFieldOf("jail").forGetter(s -> Optional.ofNullable(s.jailPoint)),
-			UUIDUtil.CODEC.listOf().optionalFieldOf("jailed", List.of()).forGetter(s -> s.jailed)
+			JAIL_ENTRY_CODEC.listOf().optionalFieldOf("jailInmates", List.of()).forGetter(s -> s.jailInmates)
 	).apply(instance, ModerationState::new));
 
 	public static final SavedDataType<ModerationState> TYPE = new SavedDataType<>(
@@ -71,7 +77,7 @@ public class ModerationState extends SavedData {
 	private final List<Violation> violations;
 	private final List<Report> reports;
 	private final List<TempBan> bans;
-	private final List<UUID> jailed;
+	private final List<JailEntry> jailInmates;
 	private JailPoint jailPoint;
 
 	public ModerationState() {
@@ -79,12 +85,12 @@ public class ModerationState extends SavedData {
 	}
 
 	private ModerationState(List<Violation> violations, List<Report> reports, List<TempBan> bans,
-			Optional<JailPoint> jailPoint, List<UUID> jailed) {
+			Optional<JailPoint> jailPoint, List<JailEntry> jailInmates) {
 		this.violations = new ArrayList<>(violations);
 		this.reports = new ArrayList<>(reports);
 		this.bans = new ArrayList<>(bans);
 		this.jailPoint = jailPoint.orElse(null);
-		this.jailed = new ArrayList<>(jailed);
+		this.jailInmates = new ArrayList<>(jailInmates);
 	}
 
 	private static List<Violation> defaultViolations() {
@@ -237,26 +243,48 @@ public class ModerationState extends SavedData {
 	}
 
 	public boolean isJailed(UUID id) {
-		return jailed.contains(id);
+		return jailInmates.stream().anyMatch(e -> e.id.equals(id));
 	}
 
-	public void jail(UUID id) {
-		if (!jailed.contains(id)) {
-			jailed.add(id);
-			setDirty();
-		}
+	public Optional<JailEntry> jailEntry(UUID id) {
+		return jailInmates.stream().filter(e -> e.id.equals(id)).findFirst();
+	}
+
+	/** Jails a player for {@code remainingSeconds} of online time ({@link DurationParser#PERMANENT} = indefinite). */
+	public void jail(UUID id, String name, long remainingSeconds) {
+		jailInmates.removeIf(e -> e.id.equals(id));
+		jailInmates.add(new JailEntry(id, name, remainingSeconds));
+		setDirty();
 	}
 
 	public boolean unjail(UUID id) {
-		boolean removed = jailed.remove(id);
+		boolean removed = jailInmates.removeIf(e -> e.id.equals(id));
 		if (removed) {
 			setDirty();
 		}
 		return removed;
 	}
 
+	/** Marks the state dirty after a jail timer was decremented. */
+	public void touch() {
+		setDirty();
+	}
+
 	/** A saved jail location: dimension id (e.g. {@code minecraft:overworld}) plus position and facing. */
 	public record JailPoint(String dimension, double x, double y, double z, float yaw, float pitch) {
+	}
+
+	/** A jailed player and their remaining online-time sentence (seconds; -1 = indefinite). */
+	public static final class JailEntry {
+		public final UUID id;
+		public final String name;
+		public long remainingSeconds;
+
+		public JailEntry(UUID id, String name, long remainingSeconds) {
+			this.id = id;
+			this.name = name;
+			this.remainingSeconds = remainingSeconds;
+		}
 	}
 
 	/** A per-player rollup of every report filed against one target. */
