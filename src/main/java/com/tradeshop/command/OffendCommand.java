@@ -64,24 +64,57 @@ public final class OffendCommand {
 										StringArgumentType.getString(context, "reason"))))));
 	}
 
-	private static int offend(CommandSourceStack source, ServerPlayer target, String reason) throws CommandSyntaxException {
+	private static int offend(CommandSourceStack source, ServerPlayer target, String rawReason) throws CommandSyntaxException {
+		// A trailing "wipe" / "wipeall" is an option, not part of the violation name.
+		String reason = rawReason.trim();
+		int wipeMode = 0; // 0 none, 1 inventory, 2 inventory + ender chest
+		int lastSpace = reason.lastIndexOf(' ');
+		if (lastSpace > 0) {
+			String lastToken = reason.substring(lastSpace + 1).toLowerCase();
+			if (lastToken.equals("wipeall")) {
+				wipeMode = 2;
+				reason = reason.substring(0, lastSpace).trim();
+			} else if (lastToken.equals("wipe")) {
+				wipeMode = 1;
+				reason = reason.substring(0, lastSpace).trim();
+			}
+		}
+
 		ModerationState state = ModerationState.get(source.getServer());
 		Optional<Violation> violation = state.findViolation(reason);
 		if (violation.isEmpty()) {
 			String valid = state.violations().stream().map(v -> v.name).collect(Collectors.joining(", "));
-			source.sendFailure(Component.literal("No violation named \"" + reason.trim()
+			source.sendFailure(Component.literal("No violation named \"" + reason
 					+ "\". Add it with /offend add <name> <time>. Existing: " + valid));
 			return 0;
 		}
 
 		Violation v = violation.get();
+		if (wipeMode >= 1) {
+			target.getInventory().clearContent();
+		}
+		if (wipeMode == 2) {
+			target.getEnderChestInventory().clearContent();
+		}
+		Component wipeLine = switch (wipeMode) {
+			case 2 -> Component.literal("Your inventory and ender chest were wiped.").withStyle(ChatFormatting.RED);
+			case 1 -> Component.literal("Your inventory was wiped.").withStyle(ChatFormatting.RED);
+			default -> null;
+		};
+
 		String bannedBy = source.getEntity() instanceof ServerPlayer admin ? admin.getGameProfile().name() : "Console";
 		String targetName = target.getGameProfile().name();
-		ModerationService.ban(target, v.banSeconds, v.name, bannedBy);
+		ModerationService.ban(target, v.banSeconds, v.name, bannedBy, wipeLine);
 
 		String duration = v.banSeconds == DurationParser.PERMANENT ? "permanently" : "for " + DurationParser.format(v.banSeconds);
+		String wipeText = switch (wipeMode) {
+			case 2 -> " (wiped inventory + ender chest)";
+			case 1 -> " (wiped inventory)";
+			default -> "";
+		};
 		source.sendSuccess(() -> Component.literal(
-				"Offended " + targetName + " for " + v.name + " — banned " + duration + ".").withStyle(ChatFormatting.GREEN), true);
+				"Offended " + targetName + " for " + v.name + " — banned " + duration + wipeText + ".")
+				.withStyle(ChatFormatting.GREEN), true);
 		return Command.SINGLE_SUCCESS;
 	}
 

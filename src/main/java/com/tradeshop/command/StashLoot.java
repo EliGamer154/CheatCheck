@@ -1,9 +1,19 @@
 package com.tradeshop.command;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 import java.util.ArrayList;
@@ -18,6 +28,10 @@ import java.util.function.Supplier;
  * slots so it reads as a real player's stash.
  */
 public final class StashLoot {
+	private static final List<ResourceKey<Enchantment>> BOOK_ENCHANTS = List.of(
+			Enchantments.SHARPNESS, Enchantments.PROTECTION, Enchantments.EFFICIENCY, Enchantments.UNBREAKING,
+			Enchantments.FORTUNE, Enchantments.POWER, Enchantments.MENDING);
+
 	private StashLoot() {
 	}
 
@@ -26,6 +40,7 @@ public final class StashLoot {
 		if (rarity <= 0 || !(blockEntity instanceof Container container)) {
 			return;
 		}
+		Level level = blockEntity.getLevel();
 		List<Supplier<ItemStack>> pool = new ArrayList<>(lootPool(rarity));
 		Collections.shuffle(pool);
 
@@ -37,9 +52,24 @@ public final class StashLoot {
 		Collections.shuffle(slots);
 
 		for (int i = 0; i < stacks; i++) {
-			container.setItem(slots.get(i), pool.get(i).get());
+			ItemStack stack = pool.get(i).get();
+			if (level != null && stack.is(Items.ENCHANTED_BOOK)) {
+				enchantBook(stack, level.registryAccess());
+			}
+			container.setItem(slots.get(i), stack);
 		}
 		blockEntity.setChanged();
+	}
+
+	/** Gives a looted enchanted book one real random enchantment at a random valid level. */
+	private static void enchantBook(ItemStack book, RegistryAccess access) {
+		Registry<Enchantment> registry = access.lookupOrThrow(Registries.ENCHANTMENT);
+		ResourceKey<Enchantment> key = BOOK_ENCHANTS.get(ThreadLocalRandom.current().nextInt(BOOK_ENCHANTS.size()));
+		Holder.Reference<Enchantment> holder = registry.getOrThrow(key);
+		int level = 1 + ThreadLocalRandom.current().nextInt(Math.max(1, holder.value().getMaxLevel()));
+		ItemEnchantments.Mutable enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+		enchantments.set(holder, level);
+		book.set(DataComponents.STORED_ENCHANTMENTS, enchantments.toImmutable());
 	}
 
 	private static List<Supplier<ItemStack>> lootPool(int rarity) {

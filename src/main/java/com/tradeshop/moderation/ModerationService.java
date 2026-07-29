@@ -23,12 +23,21 @@ public final class ModerationService {
 	 * shows the remaining time. {@code banSeconds} of {@link DurationParser#PERMANENT} bans permanently.
 	 */
 	public static void ban(ServerPlayer target, long banSeconds, String reason, String bannedBy) {
+		ban(target, banSeconds, reason, bannedBy, null);
+	}
+
+	/** Bans the target, optionally appending {@code extraLine} (e.g. a wipe notice) to the disconnect screen. */
+	public static void ban(ServerPlayer target, long banSeconds, String reason, String bannedBy, Component extraLine) {
 		long expiry = banSeconds == DurationParser.PERMANENT
 				? DurationParser.PERMANENT
 				: System.currentTimeMillis() + banSeconds * 1000L;
 		TempBan ban = new TempBan(target.getUUID(), target.getGameProfile().name(), reason, expiry, bannedBy);
 		ModerationState.get(target.level().getServer()).addBan(ban);
-		target.connection.disconnect(banScreen(ban));
+		Component screen = banScreen(ban);
+		if (extraLine != null) {
+			screen = screen.copy().append(Component.literal("\n")).append(extraLine);
+		}
+		target.connection.disconnect(screen);
 	}
 
 	/** Resolves a stored dimension id (e.g. {@code minecraft:overworld}) to a live level, falling back to the overworld. */

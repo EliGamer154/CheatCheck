@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.ChestType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -90,11 +91,15 @@ public final class SpawnBaseCommand {
 		int y = floorY + 1;
 		List<BlockPos> interior = new ArrayList<>();
 		Set<BlockPos> interiorSet = new HashSet<>();
+		Set<BlockPos> perimeter = new HashSet<>();
 		for (int dx = 1; dx < size - 1; dx++) {
 			for (int dz = 1; dz < size - 1; dz++) {
 				BlockPos pos = new BlockPos(ox + dx, y, oz + dz);
 				interior.add(pos);
 				interiorSet.add(pos);
+				if (dx == 1 || dx == size - 2 || dz == 1 || dz == size - 2) {
+					perimeter.add(pos);
+				}
 			}
 		}
 		Collections.shuffle(interior);
@@ -108,21 +113,31 @@ public final class SpawnBaseCommand {
 			}
 		}
 
-		// Line the walls with storage/stations facing inward; stock containers if a rarity was given.
+		// Line the walls with storage/stations facing inward, leaving gaps; stock containers if a rarity was given.
+		// Some spots become double chests, and 32% of those get a second double chest stacked on top.
 		int placed = 0;
 		for (int dx = 1; dx < size - 1; dx++) {
 			for (int dz = 1; dz < size - 1; dz++) {
-				boolean perimeter = dx == 1 || dx == size - 2 || dz == 1 || dz == size - 2;
-				if (!perimeter) {
-					continue;
-				}
 				BlockPos pos = new BlockPos(ox + dx, y, oz + dz);
-				if (used.contains(pos) || random.nextDouble() > 0.85) {
-					continue;
+				if (!perimeter.contains(pos) || used.contains(pos) || random.nextDouble() > 0.55) {
+					continue; // gap
 				}
-				placeWall(level, pos, WALL[random.nextInt(WALL.length)], inward(dx, dz, size), rarity);
-				used.add(pos);
-				placed++;
+				Direction in = inward(dx, dz, size);
+				BlockPos partner = pos.relative(in.getClockWise());
+				if (random.nextInt(100) < 35 && perimeter.contains(partner) && !used.contains(partner)) {
+					placeDoubleChest(level, pos, partner, in, rarity);
+					used.add(pos);
+					used.add(partner);
+					placed += 2;
+					if (random.nextInt(100) < 32) {
+						placeDoubleChest(level, pos.above(), partner.above(), in, rarity);
+						placed += 2;
+					}
+				} else {
+					placeWall(level, pos, WALL[random.nextInt(WALL.length)], in, rarity);
+					used.add(pos);
+					placed++;
+				}
 			}
 		}
 
@@ -149,6 +164,17 @@ public final class SpawnBaseCommand {
 		level.setBlockAndUpdate(pos, faced(block, inward));
 		if (rarity > 0 && (block == Blocks.CHEST || block == Blocks.BARREL || block == Blocks.SHULKER_BOX)) {
 			StashLoot.fill(level.getBlockEntity(pos), rarity);
+		}
+	}
+
+	/** Places a connected double chest: {@code left} + {@code right}, both facing inward. */
+	private static void placeDoubleChest(ServerLevel level, BlockPos left, BlockPos right, Direction inward, int rarity) {
+		BlockState base = Blocks.CHEST.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, inward);
+		level.setBlockAndUpdate(left, base.setValue(BlockStateProperties.CHEST_TYPE, ChestType.LEFT));
+		level.setBlockAndUpdate(right, base.setValue(BlockStateProperties.CHEST_TYPE, ChestType.RIGHT));
+		if (rarity > 0) {
+			StashLoot.fill(level.getBlockEntity(left), rarity);
+			StashLoot.fill(level.getBlockEntity(right), rarity);
 		}
 	}
 
