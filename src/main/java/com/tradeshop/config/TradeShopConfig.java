@@ -22,6 +22,12 @@ public class TradeShopConfig {
 	/** How many distinct item types a single offer may contain. */
 	public int maxOfferItemTypes = 9;
 
+	/** Minimum seconds between a player's /report submissions. */
+	public int reportCooldownSeconds = 60;
+
+	/** In safemode, how far (blocks) a watching admin may stray from their target before being pulled back. */
+	public double safeModeLeashRadius = 100.0;
+
 	public static TradeShopConfig get() {
 		return instance;
 	}

@@ -3,7 +3,7 @@
 	"id": "tradeshop",
 	"version": "${version}",
 	"name": "TradeShop",
-	"description": "Player-to-player item trading via /shop: list items, make offers, and both sides confirm before a trade completes.",
+	"description": "Player-to-player item trading via /shop, plus a server-side anti-cheat moderation toolkit: /report, /cheatcheck spectate menus, /safemode, /offend, and /tempban.",
 	"authors": [
 		"EliGamer154"
 	],
@@ -17,6 +17,9 @@
 			"com.tradeshop.TradeShop"
 		]
 	},
+	"mixins": [
+		"tradeshop.mixins.json"
+	],
 	"depends": {
 		"fabricloader": ">=0.19.3",
 		"minecraft": ">=26.1.2 <=26.2",
