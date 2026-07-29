@@ -4,7 +4,6 @@
 	"package": "com.tradeshop.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"MobAccessor",
 		"PlayerInfoUpdatePacketAccessor",
 		"PlayerListMixin",
 		"ServerCommonPacketListenerMixin"

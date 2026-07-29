@@ -72,8 +72,13 @@ public final class ModerationEvents {
 		ModerationState state = ModerationState.get(server);
 		double jailRadiusSq = TradeShopConfig.get().jailRadius * TradeShopConfig.get().jailRadius;
 		Optional<ModerationState.JailPoint> jailPoint = state.jailPoint();
+		boolean radarOn = tools.isRadarOn();
 
 		for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+			// Radar: keep every player glowing (covers newly-joined players too).
+			if (radarOn) {
+				online.setGlowingTag(true);
+			}
 			// Keep frozen suspects pinned to where they were frozen.
 			tools.frozenPoint(online.getUUID()).ifPresent(point -> {
 				if (online.level() != point.level()

@@ -21,6 +21,7 @@ public final class WatchTools {
 	private final Set<UUID> vanished = new HashSet<>();
 	private final Set<UUID> glowing = new HashSet<>();
 	private final Map<UUID, ReturnPoint> returnPoints = new HashMap<>();
+	private boolean radar;
 
 	private WatchTools() {
 	}
@@ -71,6 +72,17 @@ public final class WatchTools {
 		} else {
 			glowing.remove(id);
 		}
+	}
+
+	// --- Radar (glow all players through walls) ---
+	public boolean isRadarOn() {
+		return radar;
+	}
+
+	/** Flips radar and returns the new state. */
+	public boolean toggleRadar() {
+		radar = !radar;
+		return radar;
 	}
 
 	// --- Return point ---
