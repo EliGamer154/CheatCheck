@@ -43,14 +43,7 @@ public final class SpawnOresCommand {
 		Direction[] horizontal = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
 		Direction dir = horizontal[random.nextInt(horizontal.length)];
 		BlockPos center = player.blockPosition().below().relative(dir, 2);
-		boolean deep = center.getY() < 0;
 
-		Block ore = switch (rarity) {
-			case 1 -> deep ? Blocks.DEEPSLATE_COAL_ORE : Blocks.COAL_ORE;
-			case 2 -> deep ? Blocks.DEEPSLATE_IRON_ORE : Blocks.IRON_ORE;
-			default -> deep ? Blocks.DEEPSLATE_DIAMOND_ORE : Blocks.DIAMOND_ORE;
-		};
-		Block stone = deep ? Blocks.DEEPSLATE : Blocks.STONE;
 		int veinSize = switch (rarity) {
 			case 1 -> rand(random, 8, 14);
 			case 2 -> rand(random, 6, 10);
@@ -70,17 +63,18 @@ public final class SpawnOresCommand {
 			}
 		}
 
-		// Case any exposed faces in stone so an above-ground vein looks embedded rather than floating.
+		// Case any exposed faces so an above-ground vein looks embedded rather than floating.
+		// Deepslate/stone and the ore variant are chosen per-block by that block's own Y (deepslate below y=0).
 		for (BlockPos orePos : ores) {
 			for (Direction face : Direction.values()) {
 				BlockPos neighbor = orePos.relative(face);
 				if (!ores.contains(neighbor) && level.getBlockState(neighbor).canBeReplaced()) {
-					level.setBlockAndUpdate(neighbor, stone.defaultBlockState());
+					level.setBlockAndUpdate(neighbor, stoneFor(neighbor.getY()).defaultBlockState());
 				}
 			}
 		}
 		for (BlockPos orePos : ores) {
-			level.setBlockAndUpdate(orePos, ore.defaultBlockState());
+			level.setBlockAndUpdate(orePos, oreFor(rarity, orePos.getY()).defaultBlockState());
 		}
 
 		String label = switch (rarity) {
@@ -91,6 +85,21 @@ public final class SpawnOresCommand {
 		player.sendSystemMessage(Component.literal("Spawned a " + label + " ore vein (" + ores.size() + " ores).")
 				.withStyle(ChatFormatting.GREEN));
 		return Command.SINGLE_SUCCESS;
+	}
+
+	/** Deepslate below y=0, stone at or above — matching vanilla generation. */
+	private static Block stoneFor(int y) {
+		return y < 0 ? Blocks.DEEPSLATE : Blocks.STONE;
+	}
+
+	/** The ore block for a rarity, using the deepslate variant below y=0. */
+	private static Block oreFor(int rarity, int y) {
+		boolean deep = y < 0;
+		return switch (rarity) {
+			case 1 -> deep ? Blocks.DEEPSLATE_COAL_ORE : Blocks.COAL_ORE;
+			case 2 -> deep ? Blocks.DEEPSLATE_IRON_ORE : Blocks.IRON_ORE;
+			default -> deep ? Blocks.DEEPSLATE_DIAMOND_ORE : Blocks.DIAMOND_ORE;
+		};
 	}
 
 	private static int rand(ThreadLocalRandom random, int min, int max) {
