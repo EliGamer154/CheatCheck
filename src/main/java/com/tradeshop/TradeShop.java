@@ -17,11 +17,13 @@ import com.tradeshop.command.SetJailCommand;
 import com.tradeshop.command.ShopCommand;
 import com.tradeshop.command.SpawnBaseCommand;
 import com.tradeshop.command.SpawnOresCommand;
+import com.tradeshop.command.SpawnPlayerCommand;
 import com.tradeshop.command.SpawnStashCommand;
 import com.tradeshop.command.TempBanCommand;
 import com.tradeshop.command.VanishCommand;
 import com.tradeshop.config.TradeShopConfig;
 import com.tradeshop.moderation.AntiCheat;
+import com.tradeshop.moderation.FakePlayers;
 import com.tradeshop.moderation.ModerationEvents;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -60,9 +62,11 @@ public class TradeShop implements ModInitializer {
 			SpawnBaseCommand.register(dispatcher);
 			SetJailCommand.register(dispatcher);
 			JailCommand.register(dispatcher);
+			SpawnPlayerCommand.register(dispatcher);
 		});
 		ModerationEvents.register();
 		AntiCheat.register();
+		FakePlayers.get().register();
 		LOGGER.info("TradeShop initialized");
 	}
 
