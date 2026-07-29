@@ -46,15 +46,30 @@ public final class ModerationEvents {
 			return InteractionResult.PASS;
 		});
 
-		// Forget an admin's safemode/watch state when they leave.
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-				SafeModeManager.get().forget(handler.player.getUUID()));
+		// Forget a player's safemode/watch/tool state when they leave.
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			SafeModeManager.get().forget(handler.player.getUUID());
+			WatchTools.get().forget(handler.player.getUUID());
+		});
 	}
 
 	private static void enforceLeash(net.minecraft.server.MinecraftServer server) {
 		SafeModeManager safe = SafeModeManager.get();
+		WatchTools tools = WatchTools.get();
 		double radius = TradeShopConfig.get().safeModeLeashRadius;
 		double radiusSq = radius * radius;
+
+		for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+			// Keep frozen suspects pinned to where they were frozen.
+			tools.frozenPoint(online.getUUID()).ifPresent(point -> {
+				if (online.level() != point.level()
+						|| online.position().distanceToSqr(point.x(), point.y(), point.z()) > 0.02) {
+					online.teleportTo(point.level(), point.x(), point.y(), point.z(),
+							java.util.Set.of(), point.yRot(), point.xRot(), true);
+				}
+				online.setDeltaMovement(0, 0, 0);
+			});
+		}
 
 		for (ServerPlayer admin : server.getPlayerList().getPlayers()) {
 			if (!safe.isSafeMode(admin.getUUID())) {

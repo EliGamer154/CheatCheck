@@ -1,6 +1,7 @@
 package com.tradeshop.mixin;
 
 import com.tradeshop.moderation.SafeModeManager;
+import com.tradeshop.moderation.WatchTools;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action;
@@ -54,9 +55,14 @@ public class ServerCommonPacketListenerMixin {
 		List<Entry> rewritten = new ArrayList<>(entries.size());
 		boolean changed = false;
 		for (Entry entry : entries) {
-			if (entry.gameMode() == GameType.SPECTATOR
-					&& !entry.profileId().equals(recipientId)
-					&& SafeModeManager.get().isSafeMode(entry.profileId())) {
+			boolean self = entry.profileId().equals(recipientId);
+			// Vanished players are dropped from everyone else's tab entirely.
+			if (!self && WatchTools.get().isVanished(entry.profileId())) {
+				changed = true;
+				continue;
+			}
+			// Safemode spectators are shown as SURVIVAL to others so their name isn't grayed.
+			if (entry.gameMode() == GameType.SPECTATOR && !self && SafeModeManager.get().isSafeMode(entry.profileId())) {
 				rewritten.add(new Entry(entry.profileId(), entry.profile(), entry.listed(), entry.latency(),
 						GameType.SURVIVAL, entry.displayName(), entry.showHat(), entry.listOrder(), entry.chatSession()));
 				changed = true;

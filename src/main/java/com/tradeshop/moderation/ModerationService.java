@@ -46,6 +46,11 @@ public final class ModerationService {
 		safe.setSafeMode(admin.getUUID(), true);
 		safe.setWatchTarget(admin.getUUID(), target.getUUID());
 
+		// Remember where the admin was (and their mode) so /return can bring them back.
+		WatchTools.get().setReturnPoint(admin.getUUID(), new WatchTools.ReturnPoint(
+				(ServerLevel) admin.level(), admin.getX(), admin.getY(), admin.getZ(),
+				admin.getYRot(), admin.getXRot(), admin.gameMode.getGameModeForPlayer()));
+
 		admin.setGameMode(GameType.SPECTATOR);
 		ServerLevel targetLevel = (ServerLevel) target.level();
 		admin.teleportTo(targetLevel, target.getX(), target.getY(), target.getZ(),

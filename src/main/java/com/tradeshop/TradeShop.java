@@ -1,14 +1,21 @@
 package com.tradeshop;
 
 import com.tradeshop.command.CheatCheckCommand;
+import com.tradeshop.command.EnderSeeCommand;
+import com.tradeshop.command.FreezeCommand;
+import com.tradeshop.command.GlowCommand;
+import com.tradeshop.command.HistoryCommand;
+import com.tradeshop.command.InvSeeCommand;
 import com.tradeshop.command.OffendCommand;
 import com.tradeshop.command.PardonCommand;
 import com.tradeshop.command.ReportCommand;
+import com.tradeshop.command.ReturnCommand;
 import com.tradeshop.command.RtpCommand;
 import com.tradeshop.command.SafeModeCommand;
 import com.tradeshop.command.ShopCommand;
 import com.tradeshop.command.SpawnStashCommand;
 import com.tradeshop.command.TempBanCommand;
+import com.tradeshop.command.VanishCommand;
 import com.tradeshop.config.TradeShopConfig;
 import com.tradeshop.moderation.ModerationEvents;
 import net.fabricmc.api.ModInitializer;
@@ -37,6 +44,13 @@ public class TradeShop implements ModInitializer {
 			TempBanCommand.register(dispatcher);
 			PardonCommand.register(dispatcher);
 			SpawnStashCommand.register(dispatcher);
+			FreezeCommand.register(dispatcher);
+			VanishCommand.register(dispatcher);
+			GlowCommand.register(dispatcher);
+			ReturnCommand.register(dispatcher);
+			InvSeeCommand.register(dispatcher);
+			EnderSeeCommand.register(dispatcher);
+			HistoryCommand.register(dispatcher);
 		});
 		ModerationEvents.register();
 		LOGGER.info("TradeShop initialized");
