@@ -34,8 +34,14 @@ public class TradeShopConfig {
 	/** Master switch for the automatic ("AI") cheat detectors. */
 	public boolean aiCheckerEnabled = true;
 
-	/** Attack distance (blocks, eye-to-target-center) above which a hit is flagged as reach. */
+	/** Attack distance (blocks, eye to nearest point of the target's hitbox) above which a hit counts as a reach violation. */
 	public double aiReachThreshold = 4.5;
+
+	/** Rolling window (seconds) over which reach violations are counted. */
+	public int aiReachWindowSeconds = 10;
+
+	/** Number of reach violations within the window before a player is actually flagged (avoids one-off lag hits). */
+	public int aiReachViolationsToFlag = 4;
 
 	/** Rolling window (seconds) over which valuable-ore mining is counted for the x-ray heuristic. */
 	public int aiOreWindowSeconds = 300;

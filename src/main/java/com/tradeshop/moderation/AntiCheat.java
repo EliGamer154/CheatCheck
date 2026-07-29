@@ -15,6 +15,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
@@ -42,6 +43,7 @@ public final class AntiCheat {
 	private static final double TELEPORT_GUARD = 40.0;
 
 	private final Map<UUID, Deque<Long>> oreBreaks = new HashMap<>();
+	private final Map<UUID, Deque<Long>> reachViolations = new HashMap<>();
 	private final Map<UUID, Track> tracks = new HashMap<>();
 	private final Map<String, Long> flagCooldown = new HashMap<>();
 
@@ -59,9 +61,16 @@ public final class AntiCheat {
 			if (enabled() && player instanceof ServerPlayer attacker && entity instanceof LivingEntity && attacker != entity) {
 				GameType mode = attacker.gameMode.getGameModeForPlayer();
 				if (mode == GameType.SURVIVAL || mode == GameType.ADVENTURE) {
-					double dist = attacker.getEyePosition().distanceTo(entity.getBoundingBox().getCenter());
+					// Measure to the nearest point of the target's hitbox, not its center, and require
+					// several violations before flagging so a single laggy/knockback hit doesn't trip it.
+					Vec3 eye = attacker.getEyePosition();
+					AABB box = entity.getBoundingBox();
+					double nx = clamp(eye.x, box.minX, box.maxX);
+					double ny = clamp(eye.y, box.minY, box.maxY);
+					double nz = clamp(eye.z, box.minZ, box.maxZ);
+					double dist = eye.distanceTo(new Vec3(nx, ny, nz));
 					if (dist > TradeShopConfig.get().aiReachThreshold) {
-						flag(attacker, "reach", String.format("%.1f blocks", dist));
+						recordReach(attacker, dist);
 					}
 				}
 			}
@@ -75,6 +84,24 @@ public final class AntiCheat {
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(this::tickMovement);
+	}
+
+	private void recordReach(ServerPlayer attacker, double dist) {
+		long now = System.currentTimeMillis();
+		long windowMs = TradeShopConfig.get().aiReachWindowSeconds * 1000L;
+		Deque<Long> hits = reachViolations.computeIfAbsent(attacker.getUUID(), k -> new ArrayDeque<>());
+		hits.addLast(now);
+		while (!hits.isEmpty() && now - hits.peekFirst() > windowMs) {
+			hits.pollFirst();
+		}
+		if (hits.size() >= TradeShopConfig.get().aiReachViolationsToFlag) {
+			flag(attacker, "reach", String.format("%.1f blocks, %dx", dist, hits.size()));
+			hits.clear();
+		}
+	}
+
+	private static double clamp(double value, double min, double max) {
+		return value < min ? min : Math.min(value, max);
 	}
 
 	private void recordOreBreak(ServerPlayer miner) {
