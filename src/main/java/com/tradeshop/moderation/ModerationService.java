@@ -32,7 +32,17 @@ public final class ModerationService {
 				? DurationParser.PERMANENT
 				: System.currentTimeMillis() + banSeconds * 1000L;
 		TempBan ban = new TempBan(target.getUUID(), target.getGameProfile().name(), reason, expiry, bannedBy);
-		ModerationState.get(target.level().getServer()).addBan(ban);
+		MinecraftServer server = target.level().getServer();
+		ModerationState.get(server).addBan(ban);
+
+		// Announce the ban (reason + time) in public chat.
+		String durationLabel = banSeconds == DurationParser.PERMANENT ? "permanent" : DurationParser.format(banSeconds);
+		Component announce = Component.literal("§c[Banned] §f" + ban.targetName + " §7for §f" + reason
+				+ " §7(§e" + durationLabel + "§7)");
+		for (ServerPlayer online : server.getPlayerList().getPlayers()) {
+			online.sendSystemMessage(announce);
+		}
+
 		Component screen = banScreen(ban);
 		if (extraLine != null) {
 			screen = screen.copy().append(Component.literal("\n")).append(extraLine);
