@@ -22,12 +22,13 @@ public final class CheatCheckCommand {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("cheatcheck")
-				.requires(com.tradeshop.TradeShop::canModerate)
+				.requires(source -> com.tradeshop.moderation.AdminPerms.atLeast(source, 1))
 				.executes(context -> {
 					CheatCheckMenu.open(context.getSource().getPlayerOrException(), 0);
 					return Command.SINGLE_SUCCESS;
 				})
 				.then(Commands.argument("player", EntityArgument.player())
+						.requires(com.tradeshop.moderation.AdminPerms::isRealOp) // watching anyone online is op-only
 						.executes(context -> watch(context.getSource(),
 								EntityArgument.getPlayer(context, "player")))));
 	}

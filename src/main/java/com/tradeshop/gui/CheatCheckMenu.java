@@ -55,14 +55,18 @@ public class CheatCheckMenu extends ShopMenu {
 					() -> clearReports(summary.targetId));
 		}
 
-		setButton(45, Icons.of(new ItemStack(Items.ENDER_EYE), "Check any online player",
-						"See everyone online and watch anyone"),
-				() -> openLater(() -> OnlinePlayersMenu.open(player, 0)));
+		// "Check anyone" and violation editing are real-op only; custom checker admins just get the reported list.
+		boolean realOp = com.tradeshop.TradeShop.isOp(player);
+		if (realOp) {
+			setButton(45, Icons.of(new ItemStack(Items.ENDER_EYE), "Check any online player",
+							"See everyone online and watch anyone"),
+					() -> openLater(() -> OnlinePlayersMenu.open(player, 0)));
+			setButton(53, Icons.of(new ItemStack(Items.COMPARATOR), "Edit violations & ban times",
+							"Add, remove, and retune offenses"),
+					() -> openLater(() -> OffenseConfigMenu.open(player, 0)));
+		}
 		setDisplay(49, Icons.of(new ItemStack(Items.PAPER), "Page " + (page + 1),
 				reported.size() + " reported player(s)"));
-		setButton(53, Icons.of(new ItemStack(Items.COMPARATOR), "Edit violations & ban times",
-						"Add, remove, and retune offenses"),
-				() -> openLater(() -> OffenseConfigMenu.open(player, 0)));
 
 		if (page > 0) {
 			setButton(46, Icons.of(new ItemStack(Items.SPECTRAL_ARROW), "Previous Page"),
