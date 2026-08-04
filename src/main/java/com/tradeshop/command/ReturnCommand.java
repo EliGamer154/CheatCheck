@@ -15,17 +15,18 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * {@code /return} — op-only. Ends a watch: sends you back to where you were (and your prior gamemode) before
- * you started spectating, and clears safemode + the watch leash so you aren't pulled back to the target.
+ * {@code /adminreturn} — ends a check: sends you back to where you were (and your prior gamemode) before you
+ * started spectating, and clears safemode + the watch leash so you aren't pulled back to the target. Available
+ * to everyone (no-op if you're not mid-check); named to avoid vanilla's {@code /return} functions command.
  */
 public final class ReturnCommand {
 	private ReturnCommand() {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		// No permission gate: /return is available to everyone so it's always in the command tree (never
-		// "unknown command"). It only does something if you're actually mid-check; otherwise it's a no-op.
-		dispatcher.register(Commands.literal("return")
+		// Named /adminreturn to avoid vanilla's /return (a functions command). Ungated so it's always in the
+		// command tree; it only does something mid-check, otherwise a harmless message.
+		dispatcher.register(Commands.literal("adminreturn")
 				.executes(context -> back(context.getSource())));
 	}
 

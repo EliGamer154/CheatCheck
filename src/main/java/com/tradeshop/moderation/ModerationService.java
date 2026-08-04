@@ -91,8 +91,8 @@ public final class ModerationService {
 		admin.teleportTo(targetLevel, target.getX(), target.getY(), target.getZ(),
 				Set.of(), target.getYRot(), target.getXRot(), true);
 
-		admin.sendSystemMessage(Component.literal("Now watching " + target.getGameProfile().name()
-				+ ". Safemode is ON — you're leashed to them. Use /safemode to stop.")
+		admin.sendSystemMessage(Component.literal("Now checking " + target.getGameProfile().name()
+				+ " — you're leashed to them. Use /adminreturn to end the check.")
 				.withStyle(ChatFormatting.AQUA));
 		AdminLog.get().record(admin.getGameProfile().name() + " started checking " + target.getGameProfile().name());
 	}
