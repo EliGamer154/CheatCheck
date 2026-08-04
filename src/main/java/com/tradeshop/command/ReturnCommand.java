@@ -23,8 +23,9 @@ public final class ReturnCommand {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+		// No permission gate: /return is available to everyone so it's always in the command tree (never
+		// "unknown command"). It only does something if you're actually mid-check; otherwise it's a no-op.
 		dispatcher.register(Commands.literal("return")
-				.requires(source -> com.tradeshop.moderation.AdminPerms.atLeast(source, 1))
 				.executes(context -> back(context.getSource())));
 	}
 
