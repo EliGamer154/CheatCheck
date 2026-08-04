@@ -24,7 +24,7 @@ public final class ReturnCommand {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("return")
-				.requires(com.tradeshop.TradeShop::canModerate)
+				.requires(source -> com.tradeshop.moderation.AdminPerms.atLeast(source, 1))
 				.executes(context -> back(context.getSource())));
 	}
 

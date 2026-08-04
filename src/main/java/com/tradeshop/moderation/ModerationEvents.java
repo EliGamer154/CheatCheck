@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.level.GameType;
 
 import java.util.Optional;
 import java.util.Set;
@@ -56,12 +57,40 @@ public final class ModerationEvents {
 		// Forget a player's safemode/watch/tool state when they leave.
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			ServerPlayer player = handler.player;
-			// If they log off mid-check, restore their real gamemode so they don't rejoin stuck in spectator.
-			WatchTools.get().returnPoint(player.getUUID()).ifPresent(rp -> player.setGameMode(rp.mode()));
+			// If they log off mid-check, restore their gamemode now and remember to return them on next join.
+			WatchTools.get().returnPoint(player.getUUID()).ifPresent(rp -> {
+				player.setGameMode(rp.mode());
+				ModerationState.get(server).setPendingReturn(new ModerationState.PendingReturn(player.getUUID(),
+						rp.level().dimension().identifier().toString(),
+						rp.x(), rp.y(), rp.z(), rp.yRot(), rp.xRot(), rp.mode().name()));
+			});
 			AdminCheckSession.get().clear(player);
 			SafeModeManager.get().forget(player.getUUID());
 			WatchTools.get().forget(player.getUUID());
 		});
+
+		// If an admin logged off mid-check, send them back where they started when they rejoin.
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			ServerPlayer player = handler.player;
+			ModerationState state = ModerationState.get(server);
+			state.pendingReturn(player.getUUID()).ifPresent(pr -> {
+				ServerLevel level = ModerationService.resolveLevel(server, pr.dimension());
+				player.setGameMode(gameTypeByName(pr.mode()));
+				player.teleportTo(level, pr.x(), pr.y(), pr.z(), Set.of(), pr.yRot(), pr.xRot(), true);
+				state.clearPendingReturn(player.getUUID());
+				player.sendSystemMessage(Component.literal("Returned you from your interrupted check.")
+						.withStyle(ChatFormatting.AQUA));
+			});
+		});
+	}
+
+	private static GameType gameTypeByName(String name) {
+		for (GameType type : GameType.values()) {
+			if (type.name().equals(name)) {
+				return type;
+			}
+		}
+		return GameType.SURVIVAL;
 	}
 
 	private static boolean isJailed(net.minecraft.world.entity.player.Player player) {
@@ -134,9 +163,9 @@ public final class ModerationEvents {
 			}
 			ServerPlayer target = server.getPlayerList().getPlayer(targetId.get());
 			if (target == null) {
-				safe.clearWatchTarget(admin.getUUID());
-				admin.sendSystemMessage(Component.literal("The player you were watching went offline. Leash released.")
+				admin.sendSystemMessage(Component.literal("The player you were checking logged out — returning you.")
 						.withStyle(ChatFormatting.YELLOW));
+				ModerationService.endWatch(admin);
 				continue;
 			}
 			boolean differentDimension = admin.level() != target.level();

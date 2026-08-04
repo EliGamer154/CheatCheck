@@ -59,10 +59,10 @@ public class CheatCheckMenu extends ShopMenu {
 		MinecraftServer server = player.level().getServer();
 		ModerationState state = ModerationState.get(server);
 		boolean realOp = com.tradeshop.TradeShop.isOp(player);
-		boolean canSeeAll = realOp || AdminPerms.level(player).map(l -> l.rank >= 3).orElse(false);
+		// Everyone who can open this menu (level 1+) may see AI flags; the Admin tab is level 3 / op only.
+		boolean canSeeAdmin = realOp || AdminPerms.level(player).map(l -> l.rank >= 3).orElse(false);
 
-		// Levels 1-2 are locked to the Player section.
-		Section sec = (section != Section.PLAYER && !canSeeAll) ? Section.PLAYER : section;
+		Section sec = (section == Section.ADMIN && !canSeeAdmin) ? Section.PLAYER : section;
 		List<ModerationState.ReportSummary> list = switch (sec) {
 			case PLAYER -> state.reportedPlayers();
 			case AI -> state.aiFlaggedPlayers();
@@ -82,16 +82,16 @@ public class CheatCheckMenu extends ShopMenu {
 					"Reasons: " + String.join(", ", summary.reasons),
 					"Status: " + (online ? "§aonline" : "§7offline"),
 					online ? "§eLeft-click: check them" : "§8(offline — can't check)",
-					canSeeAll ? "§eRight-click: clear reports" : "");
+					canSeeAdmin ? "§eRight-click: clear reports" : "");
 			setButton(contentSlot(i), head,
 					() -> watch(summary.targetId),
-					canSeeAll ? () -> clearReports(summary.targetId) : () -> watch(summary.targetId));
+					canSeeAdmin ? () -> clearReports(summary.targetId) : () -> watch(summary.targetId));
 		}
 
-		// Section tabs (top row). AI/Admin only for level 3 / real ops.
+		// Section tabs (top row). Player + AI for everyone (level 1+); Admin only for level 3 / real ops.
 		tab(3, Section.PLAYER, sec);
-		if (canSeeAll) {
-			tab(4, Section.AI, sec);
+		tab(4, Section.AI, sec);
+		if (canSeeAdmin) {
 			tab(5, Section.ADMIN, sec);
 		}
 

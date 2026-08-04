@@ -69,6 +69,17 @@ public class ModerationState extends SavedData {
 			Codec.STRING.fieldOf("level").forGetter(AdminEntry::level)
 	).apply(instance, AdminEntry::new));
 
+	private static final Codec<PendingReturn> PENDING_RETURN_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			UUIDUtil.CODEC.fieldOf("id").forGetter(PendingReturn::id),
+			Codec.STRING.fieldOf("dimension").forGetter(PendingReturn::dimension),
+			Codec.DOUBLE.fieldOf("x").forGetter(PendingReturn::x),
+			Codec.DOUBLE.fieldOf("y").forGetter(PendingReturn::y),
+			Codec.DOUBLE.fieldOf("z").forGetter(PendingReturn::z),
+			Codec.FLOAT.fieldOf("yRot").forGetter(PendingReturn::yRot),
+			Codec.FLOAT.fieldOf("xRot").forGetter(PendingReturn::xRot),
+			Codec.STRING.fieldOf("mode").forGetter(PendingReturn::mode)
+	).apply(instance, PendingReturn::new));
+
 	public static final Codec<ModerationState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			VIOLATION_CODEC.listOf().fieldOf("violations").forGetter(s -> s.violations),
 			REPORT_CODEC.listOf().fieldOf("reports").forGetter(s -> s.reports),
@@ -77,7 +88,8 @@ public class ModerationState extends SavedData {
 			JAIL_ENTRY_CODEC.listOf().optionalFieldOf("jailInmates", List.of()).forGetter(s -> s.jailInmates),
 			ADMIN_ENTRY_CODEC.listOf().optionalFieldOf("admins", List.of()).forGetter(s -> s.admins),
 			REPORT_CODEC.listOf().optionalFieldOf("aiFlags", List.of()).forGetter(s -> s.aiFlags),
-			REPORT_CODEC.listOf().optionalFieldOf("adminReports", List.of()).forGetter(s -> s.adminReports)
+			REPORT_CODEC.listOf().optionalFieldOf("adminReports", List.of()).forGetter(s -> s.adminReports),
+			PENDING_RETURN_CODEC.listOf().optionalFieldOf("pendingReturns", List.of()).forGetter(s -> s.pendingReturns)
 	).apply(instance, ModerationState::new));
 
 	public static final SavedDataType<ModerationState> TYPE = new SavedDataType<>(
@@ -90,16 +102,17 @@ public class ModerationState extends SavedData {
 	private final List<AdminEntry> admins;
 	private final List<Report> aiFlags;
 	private final List<Report> adminReports;
+	private final List<PendingReturn> pendingReturns;
 	private JailPoint jailPoint;
 
 	public ModerationState() {
 		this(defaultViolations(), new ArrayList<>(), new ArrayList<>(), Optional.empty(),
-				new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+				new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
 	}
 
 	private ModerationState(List<Violation> violations, List<Report> reports, List<TempBan> bans,
 			Optional<JailPoint> jailPoint, List<JailEntry> jailInmates, List<AdminEntry> admins,
-			List<Report> aiFlags, List<Report> adminReports) {
+			List<Report> aiFlags, List<Report> adminReports, List<PendingReturn> pendingReturns) {
 		this.violations = new ArrayList<>(violations);
 		this.reports = new ArrayList<>(reports);
 		this.bans = new ArrayList<>(bans);
@@ -108,6 +121,7 @@ public class ModerationState extends SavedData {
 		this.admins = new ArrayList<>(admins);
 		this.aiFlags = new ArrayList<>(aiFlags);
 		this.adminReports = new ArrayList<>(adminReports);
+		this.pendingReturns = new ArrayList<>(pendingReturns);
 	}
 
 	private static List<Violation> defaultViolations() {
@@ -341,6 +355,28 @@ public class ModerationState extends SavedData {
 
 	/** A stored checker-admin: player id/name and their {@link AdminLevel} label. */
 	public record AdminEntry(UUID id, String name, String level) {
+	}
+
+	// --- Pending returns (an admin who logged off mid-check gets returned on next join) ---
+
+	public void setPendingReturn(PendingReturn pending) {
+		pendingReturns.removeIf(p -> p.id().equals(pending.id()));
+		pendingReturns.add(pending);
+		setDirty();
+	}
+
+	public Optional<PendingReturn> pendingReturn(UUID id) {
+		return pendingReturns.stream().filter(p -> p.id().equals(id)).findFirst();
+	}
+
+	public void clearPendingReturn(UUID id) {
+		if (pendingReturns.removeIf(p -> p.id().equals(id))) {
+			setDirty();
+		}
+	}
+
+	/** A saved return destination for an admin who disconnected mid-check. */
+	public record PendingReturn(UUID id, String dimension, double x, double y, double z, float yRot, float xRot, String mode) {
 	}
 
 	/** A jailed player and their remaining online-time sentence (seconds; -1 = indefinite). */
