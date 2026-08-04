@@ -8,15 +8,10 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * {@code /invsee <player>} — op-only. Opens a read-only snapshot of a player's full inventory (main, hotbar,
- * armor, offhand) to check for duped or illegal items.
+ * {@code /invsee <player>} — op-only. Opens a live view of a player's full inventory (main, hotbar, armor,
+ * offhand). Left-click an item to take it from them.
  */
 public final class InvSeeCommand {
 	private InvSeeCommand() {
@@ -31,12 +26,8 @@ public final class InvSeeCommand {
 
 	private static int view(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
 		ServerPlayer viewer = source.getPlayerOrException();
-		Inventory inventory = target.getInventory();
-		List<ItemStack> snapshot = new ArrayList<>();
-		for (int i = 0; i < inventory.getContainerSize(); i++) {
-			snapshot.add(inventory.getItem(i).copy());
-		}
-		InventoryViewMenu.open(viewer, target.getGameProfile().name() + "'s inventory", snapshot, 0);
+		InventoryViewMenu.open(viewer, target, target.getInventory(),
+				target.getGameProfile().name() + "'s inventory", 0);
 		return Command.SINGLE_SUCCESS;
 	}
 }

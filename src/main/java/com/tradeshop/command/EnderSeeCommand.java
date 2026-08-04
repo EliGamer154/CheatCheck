@@ -8,13 +8,8 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.PlayerEnderChestContainer;
-import net.minecraft.world.item.ItemStack;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/** {@code /endersee <player>} — op-only. Opens a read-only snapshot of a player's ender chest. */
+/** {@code /endersee <player>} — op-only. Opens a live view of a player's ender chest; left-click to take items. */
 public final class EnderSeeCommand {
 	private EnderSeeCommand() {
 	}
@@ -28,12 +23,8 @@ public final class EnderSeeCommand {
 
 	private static int view(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
 		ServerPlayer viewer = source.getPlayerOrException();
-		PlayerEnderChestContainer ender = target.getEnderChestInventory();
-		List<ItemStack> snapshot = new ArrayList<>();
-		for (int i = 0; i < ender.getContainerSize(); i++) {
-			snapshot.add(ender.getItem(i).copy());
-		}
-		InventoryViewMenu.open(viewer, target.getGameProfile().name() + "'s ender chest", snapshot, 0);
+		InventoryViewMenu.open(viewer, target, target.getEnderChestInventory(),
+				target.getGameProfile().name() + "'s ender chest", 0);
 		return Command.SINGLE_SUCCESS;
 	}
 }
