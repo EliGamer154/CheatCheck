@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -136,6 +137,7 @@ public final class AntiCheat {
 					|| mode == GameType.SPECTATOR || mode == GameType.CREATIVE
 					|| player.isPassenger() || player.isFallFlying() || player.getAbilities().flying
 					|| player.onClimbable() || player.isInWater() || player.isInLava()
+					|| player.isAutoSpinAttack() || inCobweb(player)
 					|| player.hasEffect(MobEffects.SPEED) || player.hasEffect(MobEffects.DOLPHINS_GRACE)
 					|| player.hasEffect(MobEffects.LEVITATION);
 			track.level = player.level();
@@ -197,6 +199,13 @@ public final class AntiCheat {
 				admin.sendSystemMessage(alert);
 			}
 		}
+	}
+
+	/** Cobwebs suspend a player mid-air with near-zero vertical movement, which would otherwise look like flight. */
+	private static boolean inCobweb(ServerPlayer player) {
+		BlockPos feet = player.blockPosition();
+		return player.level().getBlockState(feet).getBlock() == Blocks.COBWEB
+				|| player.level().getBlockState(feet.above()).getBlock() == Blocks.COBWEB;
 	}
 
 	private static boolean enabled() {
