@@ -66,6 +66,8 @@ public final class CheatCheckerCommand {
 		}
 		AdminLevel lvl = level.get();
 		ModerationState.get(source.getServer()).setAdmin(target.getUUID(), target.getGameProfile().name(), lvl);
+		// Re-send their command tree so their new level's commands (/cheatcheck, /return, ...) work immediately.
+		source.getServer().getCommands().sendCommands(target);
 
 		String name = target.getGameProfile().name();
 		source.sendSuccess(() -> Component.literal("Made " + name + " a level " + lvl.label + " checker admin.")
@@ -81,6 +83,7 @@ public final class CheatCheckerCommand {
 			source.sendFailure(Component.literal(name + " isn't a checker admin."));
 			return 0;
 		}
+		source.getServer().getCommands().sendCommands(target); // refresh their tree so the commands disappear
 		source.sendSuccess(() -> Component.literal("Removed " + name + " as a checker admin.")
 				.withStyle(ChatFormatting.GREEN), true);
 		target.sendSystemMessage(Component.literal("Your checker-admin rank was removed.").withStyle(ChatFormatting.YELLOW));
