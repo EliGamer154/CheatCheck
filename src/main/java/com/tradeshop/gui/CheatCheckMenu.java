@@ -94,6 +94,11 @@ public class CheatCheckMenu extends ShopMenu {
 		openLater(() -> {
 			player.closeContainer();
 			ModerationService.startWatch(player, target);
+			// Custom admins (non-ops) get a timed, restricted check session; real ops are unrestricted.
+			if (!com.tradeshop.TradeShop.isOp(player)) {
+				com.tradeshop.moderation.AdminPerms.level(player)
+						.ifPresent(lvl -> com.tradeshop.moderation.AdminCheckSession.get().start(player, lvl));
+			}
 		});
 	}
 

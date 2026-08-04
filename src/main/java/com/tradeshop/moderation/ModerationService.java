@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 
+import java.util.Optional;
 import java.util.Set;
 
 /** Shared moderation actions used by both the commands and the chest-GUI menus. */
@@ -93,5 +94,23 @@ public final class ModerationService {
 		admin.sendSystemMessage(Component.literal("Now watching " + target.getGameProfile().name()
 				+ ". Safemode is ON — you're leashed to them. Use /safemode to stop.")
 				.withStyle(ChatFormatting.AQUA));
+	}
+
+	/**
+	 * Ends a watch/check: tears down any admin check session (boss bar + coords), clears safemode, and sends
+	 * the admin back to where they started (restoring their gamemode). Returns false if there's no saved spot.
+	 */
+	public static boolean endWatch(ServerPlayer admin) {
+		AdminCheckSession.get().clear(admin);
+		SafeModeManager.get().setSafeMode(admin.getUUID(), false);
+		Optional<WatchTools.ReturnPoint> point = WatchTools.get().returnPoint(admin.getUUID());
+		if (point.isEmpty()) {
+			return false;
+		}
+		WatchTools.ReturnPoint p = point.get();
+		admin.setGameMode(p.mode());
+		admin.teleportTo(p.level(), p.x(), p.y(), p.z(), Set.of(), p.yRot(), p.xRot(), true);
+		WatchTools.get().clearReturnPoint(admin.getUUID());
+		return true;
 	}
 }

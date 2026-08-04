@@ -55,8 +55,12 @@ public final class ModerationEvents {
 
 		// Forget a player's safemode/watch/tool state when they leave.
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			SafeModeManager.get().forget(handler.player.getUUID());
-			WatchTools.get().forget(handler.player.getUUID());
+			ServerPlayer player = handler.player;
+			// If they log off mid-check, restore their real gamemode so they don't rejoin stuck in spectator.
+			WatchTools.get().returnPoint(player.getUUID()).ifPresent(rp -> player.setGameMode(rp.mode()));
+			AdminCheckSession.get().clear(player);
+			SafeModeManager.get().forget(player.getUUID());
+			WatchTools.get().forget(player.getUUID());
 		});
 	}
 
@@ -79,6 +83,7 @@ public final class ModerationEvents {
 		boolean radarOn = tools.isRadarOn();
 		// Jail sentences only tick down while the player is online, so we count real seconds here.
 		boolean secondTick = (++jailTickCounter % 20) == 0;
+		AdminCheckSession.get().tick(server, secondTick);
 
 		for (ServerPlayer online : server.getPlayerList().getPlayers()) {
 			// Radar: keep every player glowing (covers newly-joined players too).

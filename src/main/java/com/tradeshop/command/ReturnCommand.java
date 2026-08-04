@@ -30,20 +30,10 @@ public final class ReturnCommand {
 
 	private static int back(CommandSourceStack source) throws CommandSyntaxException {
 		ServerPlayer admin = source.getPlayerOrException();
-		Optional<WatchTools.ReturnPoint> point = WatchTools.get().returnPoint(admin.getUUID());
-		if (point.isEmpty()) {
+		if (!com.tradeshop.moderation.ModerationService.endWatch(admin)) {
 			source.sendFailure(Component.literal("No saved spot to return to — start a check with /cheatcheck first."));
 			return 0;
 		}
-
-		// Drop safemode + the leash first so we aren't immediately yanked back to the target.
-		SafeModeManager.get().setSafeMode(admin.getUUID(), false);
-
-		WatchTools.ReturnPoint p = point.get();
-		admin.setGameMode(p.mode());
-		admin.teleportTo(p.level(), p.x(), p.y(), p.z(), Set.of(), p.yRot(), p.xRot(), true);
-		WatchTools.get().clearReturnPoint(admin.getUUID());
-
 		admin.sendSystemMessage(Component.literal("Returned to where you started. Safemode off.")
 				.withStyle(ChatFormatting.AQUA));
 		return Command.SINGLE_SUCCESS;
