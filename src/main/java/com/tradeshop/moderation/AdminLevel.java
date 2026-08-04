@@ -9,14 +9,17 @@ import java.util.Optional;
  *   <li>{@link #LEVEL_2} — + /adminreport, /warn, /spawnstash (empty), /spawnores (4-minute checks).</li>
  *   <li>{@link #LEVEL_3} — + /kick and the Admin/AI report sections (5-minute checks).</li>
  *   <li>{@link #LEVEL_3_PLUS} — + /invsee and /endersee (5-minute checks).</li>
+ *   <li>{@link #LEVEL_5} — everything, with <b>no check timer</b>.</li>
  * </ul>
  * {@code rank} is used for "at least level N" checks; {@link #LEVEL_3_PLUS} shares rank 3 with {@link #LEVEL_3}.
+ * A {@code timerMinutes} of 0 means the check never auto-ends.
  */
 public enum AdminLevel {
 	LEVEL_1("1", 1, 3, false),
 	LEVEL_2("2", 2, 4, false),
 	LEVEL_3("3", 3, 5, false),
-	LEVEL_3_PLUS("3+", 3, 5, true);
+	LEVEL_3_PLUS("3+", 3, 5, true),
+	LEVEL_5("5", 5, 0, true);
 
 	public final String label;
 	public final int rank;
@@ -37,6 +40,7 @@ public enum AdminLevel {
 			case "2" -> Optional.of(LEVEL_2);
 			case "3" -> Optional.of(LEVEL_3);
 			case "3+", "3plus" -> Optional.of(LEVEL_3_PLUS);
+			case "5" -> Optional.of(LEVEL_5);
 			default -> Optional.empty();
 		};
 	}

@@ -33,7 +33,7 @@ public final class CheatCheckerCommand {
 						.then(Commands.literal("add")
 								.then(Commands.argument("player", EntityArgument.player())
 										.then(Commands.argument("level", StringArgumentType.word())
-												.suggests((ctx, b) -> SharedSuggestionProvider.suggest(new String[]{"1", "2", "3", "3+"}, b))
+												.suggests((ctx, b) -> SharedSuggestionProvider.suggest(new String[]{"1", "2", "3", "3+", "5"}, b))
 												.executes(context -> add(context.getSource(),
 														EntityArgument.getPlayer(context, "player"),
 														StringArgumentType.getString(context, "level"))))))
@@ -61,7 +61,7 @@ public final class CheatCheckerCommand {
 	private static int add(CommandSourceStack source, ServerPlayer target, String levelText) {
 		Optional<AdminLevel> level = AdminLevel.parse(levelText);
 		if (level.isEmpty()) {
-			source.sendFailure(Component.literal("Invalid level \"" + levelText + "\". Use 1, 2, 3, or 3+."));
+			source.sendFailure(Component.literal("Invalid level \"" + levelText + "\". Use 1, 2, 3, 3+, or 5."));
 			return 0;
 		}
 		AdminLevel lvl = level.get();

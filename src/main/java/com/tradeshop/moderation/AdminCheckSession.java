@@ -41,22 +41,27 @@ public final class AdminCheckSession {
 		return sessions.containsKey(adminId);
 	}
 
-	/** Starts a timed, restricted check for the admin. */
+	/** Starts a restricted check for the admin. A level with a 0-minute timer runs with no countdown/auto-return. */
 	public void start(ServerPlayer admin, AdminLevel level) {
 		clear(admin); // drop any prior session's bar
 		int seconds = level.timerMinutes * 60;
-		ServerBossEvent bar = new ServerBossEvent(UUID.randomUUID(),
-				timerName(seconds), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
-		bar.addPlayer(admin);
+		ServerBossEvent bar = null;
+		if (seconds > 0) {
+			bar = new ServerBossEvent(UUID.randomUUID(),
+					timerName(seconds), BossEvent.BossBarColor.RED, BossEvent.BossBarOverlay.PROGRESS);
+			bar.addPlayer(admin);
+		}
 		admin.connection.send(new ClientboundEntityEventPacket(admin, ENABLE_REDUCED_DEBUG));
-		sessions.put(admin.getUUID(), new Session(bar, seconds, seconds));
+		sessions.put(admin.getUUID(), new Session(bar, seconds, seconds, seconds > 0));
 	}
 
 	/** Tears down the session's HUD/coord state (boss bar + reduced debug) without returning the admin. */
 	public void clear(ServerPlayer admin) {
 		Session session = sessions.remove(admin.getUUID());
 		if (session != null) {
-			session.bar.removeAllPlayers();
+			if (session.bar != null) {
+				session.bar.removeAllPlayers();
+			}
 			admin.connection.send(new ClientboundEntityEventPacket(admin, DISABLE_REDUCED_DEBUG));
 		}
 	}
@@ -69,7 +74,9 @@ public final class AdminCheckSession {
 		for (Entry<UUID, Session> entry : new ArrayList<>(sessions.entrySet())) {
 			ServerPlayer admin = server.getPlayerList().getPlayer(entry.getKey());
 			if (admin == null) {
-				entry.getValue().bar.removeAllPlayers();
+				if (entry.getValue().bar != null) {
+					entry.getValue().bar.removeAllPlayers();
+				}
 				sessions.remove(entry.getKey());
 				continue;
 			}
@@ -77,8 +84,8 @@ public final class AdminCheckSession {
 			if (admin.gameMode.getGameModeForPlayer() != GameType.SPECTATOR) {
 				admin.setGameMode(GameType.SPECTATOR);
 			}
-			if (secondTick) {
-				Session session = entry.getValue();
+			Session session = entry.getValue();
+			if (session.timed && secondTick) {
 				session.remaining--;
 				session.bar.setName(timerName(session.remaining));
 				session.bar.setProgress(Math.max(0f, (float) session.remaining / session.total));
@@ -102,12 +109,14 @@ public final class AdminCheckSession {
 	private static final class Session {
 		final ServerBossEvent bar;
 		final int total;
+		final boolean timed;
 		int remaining;
 
-		Session(ServerBossEvent bar, int remaining, int total) {
+		Session(ServerBossEvent bar, int remaining, int total, boolean timed) {
 			this.bar = bar;
 			this.remaining = remaining;
 			this.total = total;
+			this.timed = timed;
 		}
 	}
 }
