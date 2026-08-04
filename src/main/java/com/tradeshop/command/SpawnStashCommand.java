@@ -133,7 +133,15 @@ public final class SpawnStashCommand {
 		for (int distance : new int[]{2, 3}) {
 			for (Direction dir : dirs) {
 				Set<BlockPos> pool = collectCells(base.relative(dir, distance), base);
-				if (pool.size() >= cellsNeeded && placeCluster(level, pieces, pool, rarity)) {
+				if (pool.size() < cellsNeeded) {
+					continue;
+				}
+				List<SpawnHistory.Change> changes = new ArrayList<>();
+				for (BlockPos p : pool) {
+					changes.add(new SpawnHistory.Change(p, level.getBlockState(p)));
+				}
+				if (placeCluster(level, pieces, pool, rarity)) {
+					SpawnHistory.get().record(player.getUUID(), SpawnHistory.Kind.STASH, level, changes);
 					String suffix = rarity > 0 ? " (rarity " + rarity + " loot in the shulkers)" : "";
 					player.sendSystemMessage(Component.literal("Spawned a stash next to you" + suffix + ".")
 							.withStyle(ChatFormatting.GREEN));

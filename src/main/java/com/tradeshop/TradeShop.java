@@ -26,6 +26,7 @@ import com.tradeshop.command.SpawnBaseCommand;
 import com.tradeshop.command.SpawnOresCommand;
 import com.tradeshop.command.SpawnStashCommand;
 import com.tradeshop.command.TempBanCommand;
+import com.tradeshop.command.UnspawnCommands;
 import com.tradeshop.command.VanishCommand;
 import com.tradeshop.config.TradeShopConfig;
 import com.tradeshop.moderation.AntiCheat;
@@ -74,6 +75,7 @@ public class TradeShop implements ModInitializer {
 			KickCommand.register(dispatcher);
 			AdminReportCommand.register(dispatcher);
 			AdminReportsCommand.register(dispatcher);
+			UnspawnCommands.register(dispatcher);
 		});
 		ModerationEvents.register();
 		AntiCheat.register();

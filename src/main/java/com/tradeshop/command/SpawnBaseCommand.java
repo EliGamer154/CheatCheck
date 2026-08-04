@@ -85,6 +85,18 @@ public final class SpawnBaseCommand {
 		int oz = base.getZ() + dir.getStepZ() * size - size / 2;
 		int floorY = base.getY() - 1;
 
+		// Capture the whole carved box first so /unspawnbase can restore it exactly.
+		List<SpawnHistory.Change> changes = new ArrayList<>();
+		for (int dx = 0; dx < size; dx++) {
+			for (int dz = 0; dz < size; dz++) {
+				for (int dy = 0; dy < height; dy++) {
+					BlockPos p = new BlockPos(ox + dx, floorY + dy, oz + dz);
+					changes.add(new SpawnHistory.Change(p, level.getBlockState(p)));
+				}
+			}
+		}
+		SpawnHistory.get().record(player.getUUID(), SpawnHistory.Kind.BASE, level, changes);
+
 		carveShell(level, ox, floorY, oz, size, height, shell, floor);
 		placeLights(level, ox, floorY, oz, size, height, random);
 

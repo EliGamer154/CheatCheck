@@ -81,7 +81,9 @@ public final class SpawnOresCommand {
 			case 4 -> rand(random, 2, 4);
 			default -> rand(random, 4, 7);
 		};
-		int count = placeVein(level, veinCenter(player, random), veinSize, y -> presetOre(rarity, y), random);
+		List<SpawnHistory.Change> changes = new java.util.ArrayList<>();
+		int count = placeVein(level, veinCenter(player, random), veinSize, y -> presetOre(rarity, y), random, changes);
+		SpawnHistory.get().record(player.getUUID(), SpawnHistory.Kind.ORES, level, changes);
 
 		String label = switch (rarity) {
 			case 1 -> "coal";
@@ -129,7 +131,9 @@ public final class SpawnOresCommand {
 		ServerLevel level = (ServerLevel) player.level();
 		ThreadLocalRandom random = ThreadLocalRandom.current();
 
-		int count = placeVein(level, veinCenter(player, random), veinSizeFor(metal), y -> oreBlock, random);
+		List<SpawnHistory.Change> changes = new java.util.ArrayList<>();
+		int count = placeVein(level, veinCenter(player, random), veinSizeFor(metal), y -> oreBlock, random, changes);
+		SpawnHistory.get().record(player.getUUID(), SpawnHistory.Kind.ORES, level, changes);
 
 		player.sendSystemMessage(Component.literal("Spawned a " + oreBlock.getName().getString().toLowerCase()
 				+ " vein (" + count + " ores).").withStyle(ChatFormatting.GREEN));
@@ -205,7 +209,7 @@ public final class SpawnOresCommand {
 	}
 
 	private static int placeVein(ServerLevel level, BlockPos center, int veinSize,
-			IntFunction<Block> oreAt, ThreadLocalRandom random) {
+			IntFunction<Block> oreAt, ThreadLocalRandom random, List<SpawnHistory.Change> changes) {
 		// Build a connected blob by random-walking from the center, then place just the ore blocks
 		// (no stone casing — the vein embeds in whatever's already there, e.g. stone underground).
 		Set<BlockPos> ores = new HashSet<>();
@@ -221,6 +225,7 @@ public final class SpawnOresCommand {
 		}
 
 		for (BlockPos orePos : ores) {
+			changes.add(new SpawnHistory.Change(orePos, level.getBlockState(orePos)));
 			level.setBlockAndUpdate(orePos, oreAt.apply(orePos.getY()).defaultBlockState());
 		}
 		return ores.size();
