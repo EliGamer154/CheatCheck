@@ -94,6 +94,7 @@ public final class ModerationService {
 		admin.sendSystemMessage(Component.literal("Now watching " + target.getGameProfile().name()
 				+ ". Safemode is ON — you're leashed to them. Use /safemode to stop.")
 				.withStyle(ChatFormatting.AQUA));
+		AdminLog.get().record(admin.getGameProfile().name() + " started checking " + target.getGameProfile().name());
 	}
 
 	/**

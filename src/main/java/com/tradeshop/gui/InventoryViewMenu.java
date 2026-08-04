@@ -8,29 +8,31 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 /**
- * OP-only live view of another player's inventory or ender chest. Left-click an item to take it (it's
- * removed from them and given to you); right-click a shulker to peek inside. Backed by the target's real
- * container, so takes are immediate and persist.
+ * Live view of another player's inventory or ender chest, backed by their real container. When {@code canTake}
+ * is set, left-click removes an item and gives it to the viewer (real ops); otherwise it's read-only (custom
+ * checker admins). Right-click a shulker to peek inside either way.
  */
 public class InventoryViewMenu extends ShopMenu {
 	private final ServerPlayer target;
 	private final Container source;
 	private final String title;
 	private final int page;
+	private final boolean canTake;
 
 	private InventoryViewMenu(int containerId, ServerPlayer viewer, ServerPlayer target, Container source,
-			String title, int page) {
+			String title, int page, boolean canTake) {
 		super(containerId, viewer);
 		this.target = target;
 		this.source = source;
 		this.title = title;
 		this.page = page;
+		this.canTake = canTake;
 		render();
 	}
 
-	public static void open(ServerPlayer viewer, ServerPlayer target, Container source, String title, int page) {
+	public static void open(ServerPlayer viewer, ServerPlayer target, Container source, String title, int page, boolean canTake) {
 		viewer.openMenu(new SimpleMenuProvider(
-				(id, inv, p) -> new InventoryViewMenu(id, viewer, target, source, title, page), Component.literal(title)));
+				(id, inv, p) -> new InventoryViewMenu(id, viewer, target, source, title, page, canTake), Component.literal(title)));
 	}
 
 	private void render() {
@@ -54,26 +56,29 @@ public class InventoryViewMenu extends ShopMenu {
 				continue;
 			}
 			ItemStack icon = Icons.of(stack.copy(), stack.getHoverName().getString(),
-					"§eLeft-click to take", Icons.peekHint(stack));
+					canTake ? "§eLeft-click to take" : "§8(read-only)", Icons.peekHint(stack));
 			setItemButton(contentSlot(i), icon,
-					() -> take(index),
-					() -> InventoryViewMenu.open(player, target, source, title, page));
+					canTake ? () -> take(index) : () -> InventoryViewMenu.open(player, target, source, title, page, false),
+					() -> InventoryViewMenu.open(player, target, source, title, page, canTake));
 		}
 
 		setDisplay(49, Icons.of(new ItemStack(Items.PAPER), "Page " + (page + 1),
-				filled + " item stack(s)", "§7Left-click an item to take it"));
+				filled + " item stack(s)", canTake ? "§7Left-click an item to take it" : "§7Read-only"));
 		if (page > 0) {
 			setButton(46, Icons.of(new ItemStack(Items.SPECTRAL_ARROW), "Previous Page"),
-					() -> openLater(() -> InventoryViewMenu.open(player, target, source, title, page - 1)));
+					() -> openLater(() -> InventoryViewMenu.open(player, target, source, title, page - 1, canTake)));
 		}
 		if (start + CONTENT_PAGE_SIZE < size) {
 			setButton(52, Icons.of(new ItemStack(Items.SPECTRAL_ARROW), "Next Page"),
-					() -> openLater(() -> InventoryViewMenu.open(player, target, source, title, page + 1)));
+					() -> openLater(() -> InventoryViewMenu.open(player, target, source, title, page + 1, canTake)));
 		}
 		refresh();
 	}
 
 	private void take(int index) {
+		if (!canTake) {
+			return;
+		}
 		if (player.level().getServer().getPlayerList().getPlayer(target.getUUID()) == null) {
 			player.sendSystemMessage(Component.literal("That player went offline — can't take their items."));
 			return;
@@ -89,6 +94,6 @@ public class InventoryViewMenu extends ShopMenu {
 				player.drop(stack, false);
 			}
 		}
-		openLater(() -> InventoryViewMenu.open(player, target, source, title, page));
+		openLater(() -> InventoryViewMenu.open(player, target, source, title, page, true));
 	}
 }

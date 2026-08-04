@@ -1,8 +1,12 @@
 package com.tradeshop;
 
+import com.tradeshop.command.AdminReportCommand;
+import com.tradeshop.command.AdminReportsCommand;
 import com.tradeshop.command.CheatCheckCommand;
 import com.tradeshop.command.CheatCheckerCommand;
 import com.tradeshop.command.CheatConfigCommand;
+import com.tradeshop.command.KickCommand;
+import com.tradeshop.command.WarnCommand;
 import com.tradeshop.command.EnderSeeCommand;
 import com.tradeshop.command.FreezeCommand;
 import com.tradeshop.command.GlowCommand;
@@ -66,6 +70,10 @@ public class TradeShop implements ModInitializer {
 			RadarCommand.register(dispatcher);
 			CheatConfigCommand.register(dispatcher);
 			CheatCheckerCommand.register(dispatcher);
+			WarnCommand.register(dispatcher);
+			KickCommand.register(dispatcher);
+			AdminReportCommand.register(dispatcher);
+			AdminReportsCommand.register(dispatcher);
 		});
 		ModerationEvents.register();
 		AntiCheat.register();

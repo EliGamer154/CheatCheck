@@ -38,6 +38,11 @@ public final class AdminPerms {
 		return false;
 	}
 
+	/** True if the player may use a level-granted action right now: real ops always; custom admins only while checking. */
+	public static boolean canActNow(ServerPlayer player) {
+		return isRealOp(player) || AdminCheckSession.get().isChecking(player.getUUID());
+	}
+
 	/** True for a real op, or a custom admin allowed to inspect inventories (level 3+). */
 	public static boolean canInspect(CommandSourceStack source) {
 		if (isRealOp(source)) {

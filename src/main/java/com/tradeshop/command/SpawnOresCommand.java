@@ -54,7 +54,7 @@ public final class SpawnOresCommand {
 				java.util.stream.Stream.concat(ORE_NAMES.stream(), BACKGROUND_NAMES.stream()).toList(), b);
 
 		dispatcher.register(Commands.literal("spawnores")
-				.requires(com.tradeshop.TradeShop::canModerate)
+				.requires(source -> com.tradeshop.moderation.AdminPerms.atLeast(source, 2))
 				.then(Commands.argument("rarity", IntegerArgumentType.integer(1, 4))
 						.executes(context -> spawnPreset(context.getSource(), IntegerArgumentType.getInteger(context, "rarity"))))
 				.then(Commands.argument("ore", StringArgumentType.word()).suggests(firstSuggest)
@@ -68,6 +68,10 @@ public final class SpawnOresCommand {
 
 	private static int spawnPreset(CommandSourceStack source, int rarity) throws CommandSyntaxException {
 		ServerPlayer player = source.getPlayerOrException();
+		if (!com.tradeshop.moderation.AdminPerms.canActNow(player)) {
+			source.sendFailure(net.minecraft.network.chat.Component.literal("You can only /spawnores while checking someone."));
+			return 0;
+		}
 		ServerLevel level = (ServerLevel) player.level();
 		ThreadLocalRandom random = ThreadLocalRandom.current();
 
@@ -118,6 +122,10 @@ public final class SpawnOresCommand {
 
 		final Block oreBlock = customOre(metal, background);
 		ServerPlayer player = source.getPlayerOrException();
+		if (!com.tradeshop.moderation.AdminPerms.canActNow(player)) {
+			source.sendFailure(net.minecraft.network.chat.Component.literal("You can only /spawnores while checking someone."));
+			return 0;
+		}
 		ServerLevel level = (ServerLevel) player.level();
 		ThreadLocalRandom random = ThreadLocalRandom.current();
 

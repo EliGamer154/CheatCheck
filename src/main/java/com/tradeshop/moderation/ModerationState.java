@@ -75,7 +75,9 @@ public class ModerationState extends SavedData {
 			BAN_CODEC.listOf().fieldOf("bans").forGetter(s -> s.bans),
 			JAIL_POINT_CODEC.optionalFieldOf("jail").forGetter(s -> Optional.ofNullable(s.jailPoint)),
 			JAIL_ENTRY_CODEC.listOf().optionalFieldOf("jailInmates", List.of()).forGetter(s -> s.jailInmates),
-			ADMIN_ENTRY_CODEC.listOf().optionalFieldOf("admins", List.of()).forGetter(s -> s.admins)
+			ADMIN_ENTRY_CODEC.listOf().optionalFieldOf("admins", List.of()).forGetter(s -> s.admins),
+			REPORT_CODEC.listOf().optionalFieldOf("aiFlags", List.of()).forGetter(s -> s.aiFlags),
+			REPORT_CODEC.listOf().optionalFieldOf("adminReports", List.of()).forGetter(s -> s.adminReports)
 	).apply(instance, ModerationState::new));
 
 	public static final SavedDataType<ModerationState> TYPE = new SavedDataType<>(
@@ -86,20 +88,26 @@ public class ModerationState extends SavedData {
 	private final List<TempBan> bans;
 	private final List<JailEntry> jailInmates;
 	private final List<AdminEntry> admins;
+	private final List<Report> aiFlags;
+	private final List<Report> adminReports;
 	private JailPoint jailPoint;
 
 	public ModerationState() {
-		this(defaultViolations(), new ArrayList<>(), new ArrayList<>(), Optional.empty(), new ArrayList<>(), new ArrayList<>());
+		this(defaultViolations(), new ArrayList<>(), new ArrayList<>(), Optional.empty(),
+				new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
 	}
 
 	private ModerationState(List<Violation> violations, List<Report> reports, List<TempBan> bans,
-			Optional<JailPoint> jailPoint, List<JailEntry> jailInmates, List<AdminEntry> admins) {
+			Optional<JailPoint> jailPoint, List<JailEntry> jailInmates, List<AdminEntry> admins,
+			List<Report> aiFlags, List<Report> adminReports) {
 		this.violations = new ArrayList<>(violations);
 		this.reports = new ArrayList<>(reports);
 		this.bans = new ArrayList<>(bans);
 		this.jailPoint = jailPoint.orElse(null);
 		this.jailInmates = new ArrayList<>(jailInmates);
 		this.admins = new ArrayList<>(admins);
+		this.aiFlags = new ArrayList<>(aiFlags);
+		this.adminReports = new ArrayList<>(adminReports);
 	}
 
 	private static List<Violation> defaultViolations() {
@@ -157,28 +165,51 @@ public class ModerationState extends SavedData {
 		setDirty();
 	}
 
-	/** Adds a report attributed to the automatic checker rather than a player. */
+	/** Adds an AI auto-flag (kept separate from player reports). */
 	public void addSystemReport(ServerPlayer target, String reason) {
-		reports.add(new Report(new UUID(0, 0), "AntiCheat",
+		aiFlags.add(new Report(new UUID(0, 0), "AntiCheat",
 				target.getUUID(), target.getGameProfile().name(), reason, System.currentTimeMillis()));
 		setDirty();
 	}
 
-	/** Removes every report filed against the given player. Returns how many were cleared. */
+	/** Adds an admin report ({@code /adminreport}), kept in its own stream. */
+	public void addAdminReport(ServerPlayer reporter, ServerPlayer target, String reason) {
+		adminReports.add(new Report(reporter.getUUID(), reporter.getGameProfile().name(),
+				target.getUUID(), target.getGameProfile().name(), reason, System.currentTimeMillis()));
+		setDirty();
+	}
+
+	/** Removes every report (player, AI, and admin) filed against the given player. Returns how many were cleared. */
 	public int clearReportsFor(UUID targetId) {
-		int before = reports.size();
+		int before = reports.size() + aiFlags.size() + adminReports.size();
 		reports.removeIf(r -> r.targetId.equals(targetId));
-		int cleared = before - reports.size();
+		aiFlags.removeIf(r -> r.targetId.equals(targetId));
+		adminReports.removeIf(r -> r.targetId.equals(targetId));
+		int cleared = before - (reports.size() + aiFlags.size() + adminReports.size());
 		if (cleared > 0) {
 			setDirty();
 		}
 		return cleared;
 	}
 
-	/** Reported players grouped into one summary each, most-recently-reported first. */
+	/** Player-filed reports, grouped one summary per player, most-recent first. */
 	public List<ReportSummary> reportedPlayers() {
+		return group(reports);
+	}
+
+	/** AI auto-flags, grouped one summary per player. */
+	public List<ReportSummary> aiFlaggedPlayers() {
+		return group(aiFlags);
+	}
+
+	/** Admin reports ({@code /adminreport}), grouped one summary per player. */
+	public List<ReportSummary> adminReportedPlayers() {
+		return group(adminReports);
+	}
+
+	private static List<ReportSummary> group(List<Report> source) {
 		Map<UUID, ReportSummary> grouped = new LinkedHashMap<>();
-		for (Report report : reports) {
+		for (Report report : source) {
 			ReportSummary summary = grouped.computeIfAbsent(report.targetId,
 					id -> new ReportSummary(report.targetId, report.targetName));
 			summary.add(report);

@@ -41,7 +41,21 @@ public final class CheatCheckerCommand {
 								.then(Commands.argument("player", EntityArgument.player())
 										.executes(context -> remove(context.getSource(),
 												EntityArgument.getPlayer(context, "player")))))
-						.then(Commands.literal("list").executes(context -> list(context.getSource())))));
+						.then(Commands.literal("list").executes(context -> list(context.getSource()))))
+				.then(Commands.literal("activity").executes(context -> activity(context.getSource()))));
+	}
+
+	private static int activity(CommandSourceStack source) {
+		var lines = com.tradeshop.moderation.AdminLog.get().recent(20);
+		if (lines.isEmpty()) {
+			source.sendSuccess(() -> Component.literal("No recent admin activity.").withStyle(ChatFormatting.GRAY), false);
+			return Command.SINGLE_SUCCESS;
+		}
+		source.sendSuccess(() -> Component.literal("— Recent admin activity —").withStyle(ChatFormatting.GOLD), false);
+		for (String line : lines) {
+			source.sendSuccess(() -> Component.literal(line).withStyle(ChatFormatting.GRAY), false);
+		}
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int add(CommandSourceStack source, ServerPlayer target, String levelText) {

@@ -100,7 +100,7 @@ public final class SpawnStashCommand {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("spawnstash")
-				.requires(com.tradeshop.TradeShop::canModerate)
+				.requires(source -> com.tradeshop.moderation.AdminPerms.atLeast(source, 2))
 				.executes(context -> spawn(context.getSource(), 0))
 				.then(Commands.argument("rarity", IntegerArgumentType.integer(1, 3))
 						.executes(context -> spawn(context.getSource(), IntegerArgumentType.getInteger(context, "rarity")))));
@@ -108,6 +108,13 @@ public final class SpawnStashCommand {
 
 	private static int spawn(CommandSourceStack source, int rarity) throws CommandSyntaxException {
 		ServerPlayer player = source.getPlayerOrException();
+		if (!com.tradeshop.moderation.AdminPerms.canActNow(player)) {
+			source.sendFailure(net.minecraft.network.chat.Component.literal("You can only /spawnstash while checking someone."));
+			return 0;
+		}
+		if (!com.tradeshop.moderation.AdminPerms.isRealOp(player)) {
+			rarity = 0; // checker admins get empty stashes
+		}
 		ServerLevel level = (ServerLevel) player.level();
 
 		List<Piece> pieces = randomLayout();

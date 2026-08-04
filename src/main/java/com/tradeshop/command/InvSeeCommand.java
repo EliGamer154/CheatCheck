@@ -19,15 +19,20 @@ public final class InvSeeCommand {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("invsee")
-				.requires(com.tradeshop.TradeShop::canModerate)
+				.requires(com.tradeshop.moderation.AdminPerms::canInspect)
 				.then(Commands.argument("player", EntityArgument.player())
 						.executes(context -> view(context.getSource(), EntityArgument.getPlayer(context, "player")))));
 	}
 
 	private static int view(CommandSourceStack source, ServerPlayer target) throws CommandSyntaxException {
 		ServerPlayer viewer = source.getPlayerOrException();
+		if (!com.tradeshop.moderation.AdminPerms.canActNow(viewer)) {
+			source.sendFailure(net.minecraft.network.chat.Component.literal("You can only /invsee while checking someone."));
+			return 0;
+		}
+		boolean canTake = com.tradeshop.moderation.AdminPerms.isRealOp(viewer); // custom admins get read-only
 		InventoryViewMenu.open(viewer, target, target.getInventory(),
-				target.getGameProfile().name() + "'s inventory", 0);
+				target.getGameProfile().name() + "'s inventory", 0, canTake);
 		return Command.SINGLE_SUCCESS;
 	}
 }
