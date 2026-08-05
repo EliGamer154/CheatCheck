@@ -58,7 +58,7 @@ public class CheatCheckMenu extends ShopMenu {
 		fillBackground();
 		MinecraftServer server = player.level().getServer();
 		ModerationState state = ModerationState.get(server);
-		boolean realOp = com.tradeshop.TradeShop.isOp(player);
+		boolean realOp = AdminPerms.isRealOp(player);
 		// Everyone who can open this menu (level 1+) may see AI flags; the Admin tab is level 3 / op only.
 		boolean canSeeAdmin = realOp || AdminPerms.level(player).map(l -> l.rank >= 3).orElse(false);
 
@@ -139,7 +139,7 @@ public class CheatCheckMenu extends ShopMenu {
 			player.closeContainer();
 			ModerationService.startWatch(player, target);
 			// Custom admins (non-ops) get a timed, restricted check session; real ops are unrestricted.
-			if (!com.tradeshop.TradeShop.isOp(player)) {
+			if (!AdminPerms.isRealOp(player)) {
 				AdminPerms.level(player).ifPresent(lvl -> com.tradeshop.moderation.AdminCheckSession.get().start(player, lvl));
 			}
 		});

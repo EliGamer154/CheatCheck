@@ -23,7 +23,7 @@ public final class WarnCommand {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("warn")
-				.requires(source -> AdminPerms.atLeast(source, 2))
+				.requires(source -> AdminPerms.atLeast(source, 3))
 				.then(Commands.argument("player", EntityArgument.player())
 						.then(Commands.argument("reason", StringArgumentType.greedyString())
 								.executes(context -> warn(context.getSource(),

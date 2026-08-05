@@ -195,7 +195,7 @@ public final class AntiCheat {
 				"[AntiCheat] " + target.getGameProfile().name() + " flagged for " + category + " (" + detail + ")")
 				.withStyle(ChatFormatting.RED);
 		for (ServerPlayer admin : server.getPlayerList().getPlayers()) {
-			if (TradeShop.isOp(admin)) {
+			if (AdminPerms.isRealOp(admin)) {
 				admin.sendSystemMessage(alert);
 			}
 		}

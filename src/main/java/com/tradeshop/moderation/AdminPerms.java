@@ -19,7 +19,9 @@ public final class AdminPerms {
 	}
 
 	public static boolean isRealOp(ServerPlayer player) {
-		return TradeShop.isOp(player);
+		// Use the permission level (not the ops.json list) so it's consistent with the command-source check
+		// and works for singleplayer hosts / anyone op'd by permission level.
+		return TradeShop.canModerate(player.createCommandSourceStack());
 	}
 
 	public static Optional<AdminLevel> level(ServerPlayer player) {
