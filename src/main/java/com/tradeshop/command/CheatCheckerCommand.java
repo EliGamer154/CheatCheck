@@ -42,7 +42,24 @@ public final class CheatCheckerCommand {
 										.executes(context -> remove(context.getSource(),
 												EntityArgument.getPlayer(context, "player")))))
 						.then(Commands.literal("list").executes(context -> list(context.getSource()))))
-				.then(Commands.literal("activity").executes(context -> activity(context.getSource()))));
+				.then(Commands.literal("activity").executes(context -> activity(context.getSource())))
+				.then(Commands.literal("dontspectate")
+						.then(Commands.argument("player", EntityArgument.player())
+								.executes(context -> setSpectatable(context.getSource(),
+										EntityArgument.getPlayer(context, "player"), false))))
+				.then(Commands.literal("allowspectate")
+						.then(Commands.argument("player", EntityArgument.player())
+								.executes(context -> setSpectatable(context.getSource(),
+										EntityArgument.getPlayer(context, "player"), true)))));
+	}
+
+	private static int setSpectatable(CommandSourceStack source, ServerPlayer target, boolean allow) {
+		ModerationState.get(source.getServer()).setUnspectatable(target.getUUID(), !allow);
+		String name = target.getGameProfile().name();
+		source.sendSuccess(() -> Component.literal(allow
+				? name + " can be checked by admins again."
+				: name + " is now protected from being checked by admins.").withStyle(ChatFormatting.GREEN), true);
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int activity(CommandSourceStack source) {

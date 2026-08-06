@@ -89,7 +89,8 @@ public class ModerationState extends SavedData {
 			ADMIN_ENTRY_CODEC.listOf().optionalFieldOf("admins", List.of()).forGetter(s -> s.admins),
 			REPORT_CODEC.listOf().optionalFieldOf("aiFlags", List.of()).forGetter(s -> s.aiFlags),
 			REPORT_CODEC.listOf().optionalFieldOf("adminReports", List.of()).forGetter(s -> s.adminReports),
-			PENDING_RETURN_CODEC.listOf().optionalFieldOf("pendingReturns", List.of()).forGetter(s -> s.pendingReturns)
+			PENDING_RETURN_CODEC.listOf().optionalFieldOf("pendingReturns", List.of()).forGetter(s -> s.pendingReturns),
+			UUIDUtil.CODEC.listOf().optionalFieldOf("unspectatable", List.of()).forGetter(s -> s.unspectatable)
 	).apply(instance, ModerationState::new));
 
 	public static final SavedDataType<ModerationState> TYPE = new SavedDataType<>(
@@ -103,16 +104,17 @@ public class ModerationState extends SavedData {
 	private final List<Report> aiFlags;
 	private final List<Report> adminReports;
 	private final List<PendingReturn> pendingReturns;
+	private final List<UUID> unspectatable;
 	private JailPoint jailPoint;
 
 	public ModerationState() {
 		this(defaultViolations(), new ArrayList<>(), new ArrayList<>(), Optional.empty(),
-				new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+				new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
 	}
 
 	private ModerationState(List<Violation> violations, List<Report> reports, List<TempBan> bans,
 			Optional<JailPoint> jailPoint, List<JailEntry> jailInmates, List<AdminEntry> admins,
-			List<Report> aiFlags, List<Report> adminReports, List<PendingReturn> pendingReturns) {
+			List<Report> aiFlags, List<Report> adminReports, List<PendingReturn> pendingReturns, List<UUID> unspectatable) {
 		this.violations = new ArrayList<>(violations);
 		this.reports = new ArrayList<>(reports);
 		this.bans = new ArrayList<>(bans);
@@ -122,6 +124,7 @@ public class ModerationState extends SavedData {
 		this.aiFlags = new ArrayList<>(aiFlags);
 		this.adminReports = new ArrayList<>(adminReports);
 		this.pendingReturns = new ArrayList<>(pendingReturns);
+		this.unspectatable = new ArrayList<>(unspectatable);
 	}
 
 	private static List<Violation> defaultViolations() {
@@ -347,6 +350,24 @@ public class ModerationState extends SavedData {
 
 	public List<AdminEntry> admins() {
 		return new ArrayList<>(admins);
+	}
+
+	// --- Un-spectatable players (protected from being checked by custom admins) ---
+
+	public boolean isUnspectatable(UUID id) {
+		return unspectatable.contains(id);
+	}
+
+	public void setUnspectatable(UUID id, boolean value) {
+		boolean changed;
+		if (value) {
+			changed = !unspectatable.contains(id) && unspectatable.add(id);
+		} else {
+			changed = unspectatable.remove(id);
+		}
+		if (changed) {
+			setDirty();
+		}
 	}
 
 	/** A saved jail location: dimension id (e.g. {@code minecraft:overworld}) plus position and facing. */

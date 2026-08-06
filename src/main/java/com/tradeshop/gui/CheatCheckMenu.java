@@ -135,6 +135,13 @@ public class CheatCheckMenu extends ShopMenu {
 			openLater(() -> CheatCheckMenu.open(player, page, section));
 			return;
 		}
+		// Protected players can't be checked by custom admins (real ops bypass). Message stays vague on purpose.
+		if (!AdminPerms.isRealOp(player)
+				&& ModerationState.get(player.level().getServer()).isUnspectatable(target.getUUID())) {
+			player.sendSystemMessage(Component.literal("§cError, cannot spectate right now."));
+			openLater(() -> CheatCheckMenu.open(player, page, section));
+			return;
+		}
 		openLater(() -> {
 			player.closeContainer();
 			ModerationService.startWatch(player, target);
