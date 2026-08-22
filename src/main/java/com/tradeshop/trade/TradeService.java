@@ -49,6 +49,7 @@ public final class TradeService {
 		if (!hasAll(buyer, offer.items)) {
 			offer.status = OfferStatus.FAILED;
 			listing.status = ListingStatus.OPEN;
+			state.setDirty();
 			seller.sendSystemMessage(Component.literal("Trade with " + buyer.getGameProfile().name() + " failed - they no longer have the offered items. Your listing is open again."));
 			buyer.sendSystemMessage(Component.literal("Trade failed - you no longer have the items you offered."));
 			return Result.MISSING_ITEMS;
@@ -60,6 +61,7 @@ public final class TradeService {
 
 		offer.status = OfferStatus.COMPLETED;
 		listing.status = ListingStatus.CLOSED;
+		state.setDirty();
 
 		seller.sendSystemMessage(Component.literal("Trade with " + buyer.getGameProfile().name() + " completed!"));
 		buyer.sendSystemMessage(Component.literal("Trade completed!"));
