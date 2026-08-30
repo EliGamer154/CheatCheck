@@ -17,7 +17,7 @@ import java.util.Set;
 /** Blocks escape/teleport commands while a player is combat-tagged (so they can't run from a fight). */
 @Mixin(Commands.class)
 public class CommandsMixin {
-	private static final Set<String> BLOCKED_IN_COMBAT = Set.of("tpa", "tpahere", "tpaccept", "home");
+	private static final Set<String> BLOCKED_IN_COMBAT = Set.of("tpa", "tpahere", "tpaccept", "home", "back", "rtp");
 
 	@Inject(method = "performCommand", at = @At("HEAD"), cancellable = true)
 	private void tradeshop$blockInCombat(ParseResults<CommandSourceStack> parseResults, String command, CallbackInfo ci) {
