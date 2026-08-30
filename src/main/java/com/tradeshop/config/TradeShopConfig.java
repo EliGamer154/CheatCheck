@@ -25,6 +25,9 @@ public class TradeShopConfig {
 	/** Minimum seconds between a player's /report submissions. */
 	public int reportCooldownSeconds = 60;
 
+	/** How long (seconds) a player stays "in combat" after PvP damage, blocking escape commands like /tpa, /home. */
+	public int combatTagSeconds = 15;
+
 	/** In safemode, how far (blocks) a watching admin may stray from their target before being pulled back. */
 	public double safeModeLeashRadius = 100.0;
 

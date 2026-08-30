@@ -30,6 +30,16 @@ public final class ModerationEvents {
 	public static void register() {
 		ServerTickEvents.END_SERVER_TICK.register(ModerationEvents::enforceLeash);
 
+		// Combat tag: when a player damages another player, tag both so escape commands are blocked.
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register(
+				(entity, source, baseDamageTaken, damageTaken, blocked) -> {
+					if (entity instanceof ServerPlayer victim && source.getEntity() instanceof ServerPlayer attacker
+							&& victim != attacker) {
+						CombatTracker.get().tag(victim.getUUID());
+						CombatTracker.get().tag(attacker.getUUID());
+					}
+				});
+
 		// Block breaking while in safemode or jailed.
 		PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
 			if (SafeModeManager.get().isSafeMode(player.getUUID())) {
